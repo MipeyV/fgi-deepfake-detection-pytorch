@@ -43,15 +43,17 @@ This repository does **not directly reuse the original code**, but instead aims 
 ```text
 .
 ├── data/              # datasets (not tracked)
+├── configs/           # experiment configurations
+├── experiments/       # logs, results, checkpoints
+├── jobs/              # jobs for cluster runs
+├── notebooks/         # exploration
 ├── src/
-│   ├── data/          # preprocessing
+│   ├── data/          # preprocessing and PyTorch datasets
 │   ├── models/        # architectures
 │   ├── training/      # training logic
 │   ├── evaluation/    # metrics
 │   └── utils/
-├── configs/           # experiment configurations
-├── experiments/       # logs, results, checkpoints
-├── notebooks/         # exploration
+├── tests/             # tests
 ├── main.py
 ├── requirements.txt
 └── README.md
