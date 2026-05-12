@@ -339,6 +339,16 @@ def create_audio_clip(
     run_command(command)
 
 
+def cleanup_frames_dir(frames_dir: Path) -> None:
+    """Remove the temporary extracted frames directory after clips are created.
+
+    Args:
+        frames_dir (Path): The directory containing extracted frames.
+    """
+    if frames_dir.exists():
+        shutil.rmtree(frames_dir)
+
+
 def preprocess_video(
     video_item: VideoItem, 
     output_dir: Path,
@@ -372,6 +382,7 @@ def preprocess_video(
     extract_frames(normalized_video_path, frames_dir)
     extract_audio(normalized_video_path, audio_path, sample_rate)
     clip_paths = create_frame_clips(frames_dir, clips_dir, clip_size)
+    cleanup_frames_dir(frames_dir)
 
     for index, clip_path in enumerate(clip_paths):
         start_time = index * clip_size / fps
