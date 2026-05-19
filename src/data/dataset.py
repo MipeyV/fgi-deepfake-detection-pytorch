@@ -120,6 +120,7 @@ class DeepFakeClipDataset(Dataset):
 
         return torch.stack(frames)
 
+    
     def load_audio_tensor(self, clip_path: str | Path) -> torch.Tensor:
         """Load audio data from the given path and convert it to a tensor using wave library.
 
