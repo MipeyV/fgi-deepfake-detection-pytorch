@@ -31,3 +31,18 @@ def write_manifest(manifest_path: Path, clip_path: Path, label: str = "real") ->
         ),
         encoding="utf-8",
     )
+
+
+def write_split_test_manifest(manifest_path: Path) -> None:
+    manifest_path.write_text(
+        "\n".join(
+            [
+                "clip_path,label,video_id,clip_id",
+                "clips/video_a/000000,real,video_a,000000",
+                "clips/video_a/000001,real,video_a,000001",
+                "clips/video_b/000000,fake,video_b,000000",
+                "clips/video_c/000000,real,video_c,000000",
+            ]
+        ),
+        encoding="utf-8",
+    )
