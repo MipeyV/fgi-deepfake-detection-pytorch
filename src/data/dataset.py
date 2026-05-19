@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import torch
+import wave
 
 from PIL import Image
 from torch.utils.data import Dataset
@@ -73,10 +74,12 @@ class DeepFakeClipDataset(Dataset):
 
         clip_path = Path(sample["clip_path"])
         label = self.label_to_idx[sample["label"]]
-        frames = self._load_frames(clip_path)
+        frames = self.load_frames_tensor(clip_path)
+        audio = self.load_audio_tensor(clip_path)
 
         return {
             "frames": frames,
+            "audio": audio,
             "clip_path": clip_path,
             "label": torch.tensor(label, dtype=torch.long),
             "video_id": sample["video_id"],
@@ -84,7 +87,7 @@ class DeepFakeClipDataset(Dataset):
         }
     
 
-    def _load_frames(self, clip_path: str | Path) -> torch.Tensor:
+    def load_frames_tensor(self, clip_path: str | Path) -> torch.Tensor:
         """Load video frames from the given clip path.
 
         Args:
@@ -116,3 +119,36 @@ class DeepFakeClipDataset(Dataset):
             frames.append(frame)
 
         return torch.stack(frames)
+
+    
+    def load_audio_tensor(self, clip_path: str | Path) -> torch.Tensor:
+        """Load audio data from the given path and convert it to a tensor using wave library.
+
+        Args:
+            clip_path (str): The path to the video clip.
+        
+        Returns:
+            torch.Tensor: A tensor containing the audio data.
+        
+        Raises:
+            FileNotFoundError: If the audio file does not exist.
+        """
+        audio_path = Path(clip_path) / "audio.wav"
+
+        if not audio_path.is_file():
+            raise FileNotFoundError(f"Audio file does not exist: {audio_path}")
+        
+        with wave.open(str(audio_path), "rb") as wav_file:
+            num_channels = wav_file.getnchannels()
+            num_frames = wav_file.getnframes()
+            raw_audio = wav_file.readframes(num_frames)
+
+        audio_array = np.frombuffer(raw_audio, dtype=np.int16)
+        audio_array = audio_array / 32768.0  # Normalize to [-1, 1]
+        
+        if num_channels > 1:
+            audio_array = audio_array.reshape(-1, num_channels).T
+        else:
+            audio_array = audio_array.reshape(1, -1)
+        
+        return torch.from_numpy(audio_array).float()
