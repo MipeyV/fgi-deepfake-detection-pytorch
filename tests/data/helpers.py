@@ -1,0 +1,33 @@
+import numpy as np
+import wave
+from PIL import Image
+from pathlib import Path
+
+
+def create_clip(clip_path: Path, num_frames: int = 3) -> None:
+    clip_path.mkdir(parents=True)
+
+    for index in range(num_frames):
+        image = Image.new("RGB", (8, 8), color=(index * 30, 10, 20))
+        image.save(clip_path / f"{index + 1:06d}.jpg")
+
+    audio_path = clip_path / "audio.wav"
+    samples = np.zeros(48000, dtype=np.int16)
+
+    with wave.open(str(audio_path), "wb") as audio_file:
+        audio_file.setnchannels(1)
+        audio_file.setsampwidth(2)
+        audio_file.setframerate(48000)
+        audio_file.writeframes(samples.tobytes())
+
+
+def write_manifest(manifest_path: Path, clip_path: Path, label: str = "real") -> None:
+    manifest_path.write_text(
+        "\n".join(
+            [
+                "clip_path,label,video_id,clip_id",
+                f"{clip_path},{label},video_001,000000",
+            ]
+        ),
+        encoding="utf-8",
+    )
