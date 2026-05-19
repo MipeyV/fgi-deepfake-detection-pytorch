@@ -1,6 +1,7 @@
 # Data files
 data/**
 !data/.gitkeep
+dataset/
 
 # Python cache files
 __pycache__/
@@ -9,3 +10,4 @@ __pycache__/
 # Pytests cache
 .pytest_cache/
 .pytest_tmp/
+.pytest_tmp_cleanup/
