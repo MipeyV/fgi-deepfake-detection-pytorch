@@ -1,6 +1,7 @@
 from pathlib import Path
 from dataclasses import dataclass
 
+import argparse
 import subprocess
 import shutil
 import csv
@@ -479,3 +480,34 @@ def write_manifest(clip_paths: list[Path], manifest_path: Path) -> None:
                 )
     except Exception as error:
         raise RuntimeError(f"Failed to write manifest file: {error}") from error
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Preprocess real/fake videos into frame/audio clips and write a manifest."
+    )
+    parser.add_argument("--real-dir", type=Path, required=True)
+    parser.add_argument("--fake-dir", type=Path, required=True)
+    parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument("--manifest-path", type=Path, required=True)
+    parser.add_argument("--fps", type=int, default=30)
+    parser.add_argument("--clip-size", type=int, default=30)
+    parser.add_argument("--sample-rate", type=int, default=48000)
+    return parser.parse_args()
+
+
+def main() -> None:
+    args = parse_args()
+    clip_paths = preprocess_dataset(
+        real_dir=args.real_dir,
+        fake_dir=args.fake_dir,
+        output_dir=args.output_dir,
+        fps=args.fps,
+        clip_size=args.clip_size,
+        sample_rate=args.sample_rate,
+    )
+    write_manifest(clip_paths, args.manifest_path)
+
+
+if __name__ == "__main__":
+    main()
