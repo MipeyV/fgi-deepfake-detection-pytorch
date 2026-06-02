@@ -77,21 +77,53 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
   - `data/prepared/` (données préparées)
   - `data/manifests/` (CSV manifests)
 
+### 5. **Configuration initiale** (`configs/`)
+- [OK] **baseline_audio.yaml** :
+  - Contrat de configuration pour la première baseline audio-only
+  - Chemins des manifests train/val/test
+  - Paramètres audio et mel-spectrogram
+  - Hyperparamètres modèle, entraînement, validation, évaluation
+  - Dossiers de checkpoints et logs
+
+### 6. **Features audio** (`src/data/`)
+- [OK] **audio_feature.py** :
+  - Conversion waveform -> mel-spectrogram avec `torch.stft`
+  - Banque de filtres mel triangulaires sans dépendance externe
+  - Support entrée simple `[channels, samples]`
+  - Support batch `[batch_size, channels, samples]`
+  - Builder compatible avec la configuration YAML
+
+### 7. **Chargement de configuration** (`src/config.py`)
+- [OK] Lecture YAML via `load_config()`
+- [OK] Validation de la configuration baseline audio
+- [OK] Vérification des sections obligatoires
+- [OK] Vérification des paramètres numériques clés
+- [OK] Tests sur le vrai fichier `configs/baseline_audio.yaml`
+
+### 8. **Training audio-only** (`src/training/`)
+- [OK] **trainer.py** :
+  - Résolution du device (`auto`, `cpu`, `cuda`)
+  - Construction d'optimizer (`adam`, `sgd`)
+  - Entraînement d'une epoch audio-only
+  - Évaluation loss/accuracy sans mise à jour des poids
+  - Support `max_batches` pour smoke tests et overfit rapide
+  - Test réel sur mini-batch depuis `data/manifests/train_manifest.csv`
+
 ---
 
 ## À FAIRE - Ce qui est MANQUANT
 
 ### 1. **Modèles** (`src/models/`)
-- [ ] Baseline audio-only (ex: spectrogram CNN)
+- [OK] Baseline audio-only (`src/models/audio_models.py`)
 - [ ] Baseline video-only (ex: 3D CNN ou ViT)
 - [ ] Modèle multimodal (fusion audio-vidéo)
 - [ ] Modèle inspiré FGI (fine-grained inconsistency detection)
 - [ ] Encodeurs pour audio et vidéo séparément
 
 ### 2. **Logique d'Entraînement** (`src/training/`)
-- [ ] Boucle d'entraînement de base
+- [OK] Boucle d'entraînement de base audio-only
 - [ ] Gestion des checkpoints (save/load)
-- [ ] Validation pendant l'entraînement
+- [OK] Évaluation loss/accuracy hors entraînement
 - [ ] Learning rate scheduling
 - [ ] Support GPU/Multi-GPU (si nécessaire)
 - [ ] Logging d'expériences (TensorBoard, Weights&Biases, etc.)
@@ -104,11 +136,12 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 - [ ] Rapport d'évaluation complet
 
 ### 4. **Configuration** (`configs/`)
-- [ ] `baseline_audio.yaml` - Configuration audio-only
+- [OK] `baseline_audio.yaml` - Configuration audio-only
 - [ ] `baseline_video.yaml` - Configuration video-only
 - [ ] `multimodal.yaml` - Configuration multimodal
 - [ ] `fgi_inspired.yaml` - Configuration FGI
-- [ ] Format YAML standardisé avec tous les hyperparamètres
+- [OK] Loader Python pour lire et valider la config audio baseline
+- [ ] Format YAML standardisé pour les futures configs
 
 ### 5. **Mise à jour main.py**
 - [ ] Support de commandes supplémentaires (train, eval)
@@ -152,27 +185,28 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 
 **Modules implémentés** : 1/5 (20%)
 - [OK] Data preprocessing & loading (100%)
-- [TODO] Models (0%)
-- [TODO] Training (0%)
+- [EN COURS] Models (baseline audio-only implémentée)
+- [EN COURS] Training (epoch audio-only + évaluation simple)
 - [TODO] Evaluation (0%)
-- [TODO] Configuration system (0%)
+- [EN COURS] Configuration system (baseline audio + loader validés)
 
 **Couverture** :
 - Data layer : [OK] Complet avec tests
-- Model layer : [TODO] Non started
-- Training layer : [TODO] Non started
+- Model layer : [EN COURS] Baseline audio-only testée
+- Training layer : [EN COURS] Mini-train audio-only testé
 - Eval layer : [TODO] Non started
 
 ---
 
 ## Prochaines Étapes (Priorité Décroissante)
 
-1. **URGENT** : Implémenter les architectures de modèles (baselines + multimodal)
-2. **IMPORTANT** : Écrire la boucle d'entraînement
-3. **IMPORTANT** : Implémenter les métriques d'évaluation
-4. **IMPORTANT** : Créer les fichiers de configuration YAML
-5. **NICE-TO-HAVE** : Ajouter logging et visualization
-6. **NICE-TO-HAVE** : Optimisation hyperparamètres
+1. **URGENT** : Créer la branche `feature/training-model`
+2. **URGENT** : Standardiser les sorties de run (`runs/`, run_id, copies config)
+3. **IMPORTANT** : Ajouter checkpoints save/load
+4. **IMPORTANT** : Implémenter les métriques d'évaluation
+5. **IMPORTANT** : Produire les prédictions CSV sur le test set
+6. **NICE-TO-HAVE** : Ajouter logging et visualization
+7. **NICE-TO-HAVE** : Optimisation hyperparamètres
 
 ---
 
