@@ -1,7 +1,6 @@
 torch
 torchvision
-numpy
+numpy>=1.26,<1.28
 opencv-python
 pytest
-pandas
-wave
+pandas>=2.2,<3
