@@ -272,10 +272,43 @@ La chaîne peut désormais faire un passage complet avec `loss.backward()` et `o
 
 ---
 
+## Juin 2026 - Organisation des runs expérimentaux
+
+### Réalisations
+- Création de `src/runs.py`.
+- Ajout de `RunContext` pour centraliser tous les chemins d'un run.
+- Ajout de `GitSnapshot` pour capturer branche, commit et état dirty du dépôt.
+- Ajout de `generate_run_id()` avec format date, nom d'expérience et commit court.
+- Ajout de `create_run_context()` pour créer automatiquement :
+  - `runs/<experiment>/<run_id>/`,
+  - `config.yaml`,
+  - `command.txt`,
+  - `git.json`,
+  - `metadata.json`,
+  - `checkpoints/`,
+  - `logs/`,
+  - `metrics/`,
+  - `predictions/`.
+- Mise à jour de `configs/baseline_audio.yaml` pour pointer les sorties vers `runs/`.
+- Ajout de tests dans `tests/test_runs.py`.
+
+### Logique
+Avant d'ajouter l'évaluation et les checkpoints, il fallait définir où chaque exécution écrit ses résultats.  
+Le but est qu'un run soit reproductible et inspectable sans ambiguïté :
+- quelle config a été utilisée,
+- quelle commande a été lancée,
+- sur quel commit,
+- où sont les logs, métriques, prédictions et checkpoints.
+
+### Résultat
+La structure de runs est prête pour les prochaines étapes.  
+Les futurs modules d'évaluation et de checkpointing pourront écrire dans les dossiers fournis par `RunContext`.
+
+---
+
 ## Prochaine période prévue - Training audio-only
 
 ### Objectifs
-- Ajouter une organisation de runs reproductible.
 - Ajouter validation et checkpoints.
 - Ajouter les premières métriques d'évaluation.
 

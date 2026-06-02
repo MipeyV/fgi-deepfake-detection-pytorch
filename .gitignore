@@ -2,6 +2,9 @@
 data/**
 !data/.gitkeep
 
+# Experiment runs
+runs/
+
 # Venv
 venv/
 .venv/
