@@ -30,6 +30,28 @@ def test_create_data_loader(tmp_path: Path) -> None:
     assert batch["clip_id"][0] == "000000"
 
 
+def test_create_audio_only_dataloader_skips_frames(tmp_path: Path) -> None:
+    clip_path = tmp_path / "preprocessed" / "real" / "video_001" / "clips" / "000000"
+    create_clip(clip_path, num_frames=3)
+
+    manifest_path = tmp_path / "manifest.csv"
+    write_manifest(manifest_path, clip_path)
+
+    dataloader = create_dataloader(
+        manifest_path,
+        batch_size=1,
+        shuffle=False,
+        num_workers=0,
+        include_frames=False,
+    )
+    batch = next(iter(dataloader))
+
+    assert "frames" not in batch
+    assert isinstance(batch["audio"], torch.Tensor)
+    assert batch["audio"].shape == (1, 1, 48000)
+    assert batch["label"].shape == (1,)
+
+
 def test_create_dataloader_raises_for_missing_manifest(tmp_path: Path) -> None:
     manifest_path = tmp_path / "manifest.csv"
 

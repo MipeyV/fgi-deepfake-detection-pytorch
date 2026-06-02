@@ -23,14 +23,18 @@ def collate_deepfake_batch(batch: list[dict]) -> dict:
     Returns:
         dict: A dictionary containing the collated batch with the same keys as the input samples,
     """
-    return {
-        "frames": torch.stack([sample["frames"] for sample in batch]),
+    collated_batch = {
         "audio": torch.stack([sample["audio"] for sample in batch]),
         "label": torch.stack([sample["label"] for sample in batch]),
         "clip_path": [sample["clip_path"] for sample in batch],
         "video_id": [sample["video_id"] for sample in batch],
         "clip_id": [sample["clip_id"] for sample in batch],
     }
+
+    if "frames" in batch[0]:
+        collated_batch["frames"] = torch.stack([sample["frames"] for sample in batch])
+
+    return collated_batch
 
 
 def create_dataloader(
@@ -39,6 +43,7 @@ def create_dataloader(
     shuffle: bool = True,
     num_workers: int = 0,
     frame_transform=None,
+    include_frames: bool = True,
     collate_fn=collate_deepfake_batch,
 ) -> DataLoader:
     """Create a Dataloader for preprocessed deepfake clips.
@@ -63,7 +68,8 @@ def create_dataloader(
 
     dataset = DeepFakeClipDataset(
         manifest_path, 
-        frame_transform=frame_transform
+        frame_transform=frame_transform,
+        include_frames=include_frames,
     )
 
     return DataLoader(

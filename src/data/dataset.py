@@ -15,7 +15,12 @@ def pil_to_tensor(image: Image.Image) -> torch.Tensor:
 
 
 class DeepFakeClipDataset(Dataset):
-    def __init__(self, manifest_path: str | Path, frame_transform=None):
+    def __init__(
+        self,
+        manifest_path: str | Path,
+        frame_transform=None,
+        include_frames: bool = True,
+    ):
         self.manifest_path = Path(manifest_path)
         self.samples = pd.read_csv(
             self.manifest_path,
@@ -27,6 +32,7 @@ class DeepFakeClipDataset(Dataset):
             },
         )
         self.frame_transform = frame_transform or pil_to_tensor
+        self.include_frames = include_frames
         self.label_to_idx = {"real": 0, "fake": 1}
         self._validate_manifest()
 
@@ -74,17 +80,20 @@ class DeepFakeClipDataset(Dataset):
 
         clip_path = Path(sample["clip_path"])
         label = self.label_to_idx[sample["label"]]
-        frames = self.load_frames_tensor(clip_path)
-        audio = self.load_audio_tensor(clip_path)
 
-        return {
-            "frames": frames,
-            "audio": audio,
+        sample_dict = {
             "clip_path": clip_path,
             "label": torch.tensor(label, dtype=torch.long),
             "video_id": sample["video_id"],
             "clip_id": sample["clip_id"],
         }
+
+        if self.include_frames:
+            sample_dict["frames"] = self.load_frames_tensor(clip_path)
+
+        sample_dict["audio"] = self.load_audio_tensor(clip_path)
+
+        return sample_dict
     
 
     def load_frames_tensor(self, clip_path: str | Path) -> torch.Tensor:
