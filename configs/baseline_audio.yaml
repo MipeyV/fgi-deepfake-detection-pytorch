@@ -8,7 +8,8 @@ experiment:
   name: baseline_audio
   version: 1
   seed: 42
-  output_dir: experiments/baseline_audio
+  runs_root: runs
+  output_dir: runs/baseline_audio
 
 data:
   manifest_dir: data/manifests
@@ -80,11 +81,11 @@ evaluation:
     - auc
 
 checkpointing:
-  save_dir: experiments/baseline_audio/checkpoints
+  save_dir: checkpoints
   save_best: true
   save_last: true
 
 logging:
-  log_dir: experiments/baseline_audio/logs
+  log_dir: logs
   level: info
   tensorboard: false

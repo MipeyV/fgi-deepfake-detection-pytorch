@@ -109,6 +109,19 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
   - Support `max_batches` pour smoke tests et overfit rapide
   - Test réel sur mini-batch depuis `data/manifests/train_manifest.csv`
 
+### 9. **Organisation des runs** (`src/runs.py`)
+- [OK] Génération de `run_id`
+- [OK] Création de dossiers `runs/<experiment>/<run_id>/`
+- [OK] Sous-dossiers :
+  - `checkpoints/`
+  - `logs/`
+  - `metrics/`
+  - `predictions/`
+- [OK] Copie de la config utilisée dans `config.yaml`
+- [OK] Sauvegarde de la commande dans `command.txt`
+- [OK] Sauvegarde de l'état Git dans `git.json`
+- [OK] Sauvegarde des métadonnées dans `metadata.json`
+
 ---
 
 ## À FAIRE - Ce qui est MANQUANT
@@ -201,10 +214,10 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 ## Prochaines Étapes (Priorité Décroissante)
 
 1. **URGENT** : Créer la branche `feature/training-model`
-2. **URGENT** : Standardiser les sorties de run (`runs/`, run_id, copies config)
-3. **IMPORTANT** : Ajouter checkpoints save/load
-4. **IMPORTANT** : Implémenter les métriques d'évaluation
-5. **IMPORTANT** : Produire les prédictions CSV sur le test set
+2. **URGENT** : Implémenter les métriques d'évaluation
+3. **IMPORTANT** : Produire les prédictions CSV sur le test set
+4. **IMPORTANT** : Ajouter checkpoints save/load
+5. **IMPORTANT** : Brancher `main.py train` avec config + run context
 6. **NICE-TO-HAVE** : Ajouter logging et visualization
 7. **NICE-TO-HAVE** : Optimisation hyperparamètres
 
