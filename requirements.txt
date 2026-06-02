@@ -4,3 +4,4 @@ numpy>=1.26,<1.28
 opencv-python
 pytest
 pandas>=2.2,<3
+PyYAML>=6.0,<7
