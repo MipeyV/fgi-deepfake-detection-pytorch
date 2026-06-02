@@ -58,6 +58,7 @@ def test_create_run_context_creates_expected_run_files(tmp_path: Path) -> None:
     assert context.logs_dir.is_dir()
     assert context.metrics_dir.is_dir()
     assert context.predictions_dir.is_dir()
+    assert context.plots_dir.is_dir()
     assert context.config_path.read_text(encoding="utf-8") == config_path.read_text(
         encoding="utf-8"
     )

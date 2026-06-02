@@ -53,6 +53,7 @@ class RunContext:
         logs_dir: Directory reserved for logs.
         metrics_dir: Directory reserved for metrics files.
         predictions_dir: Directory reserved for prediction CSV files.
+        plots_dir: Directory reserved for plots.
     """
 
     run_id: str
@@ -66,6 +67,7 @@ class RunContext:
     logs_dir: Path
     metrics_dir: Path
     predictions_dir: Path
+    plots_dir: Path
 
 
 def slugify(value: str) -> str:
@@ -219,8 +221,15 @@ def create_run_context(
     logs_dir = run_dir / "logs"
     metrics_dir = run_dir / "metrics"
     predictions_dir = run_dir / "predictions"
+    plots_dir = run_dir / "plots"
 
-    for directory in (checkpoints_dir, logs_dir, metrics_dir, predictions_dir):
+    for directory in (
+        checkpoints_dir,
+        logs_dir,
+        metrics_dir,
+        predictions_dir,
+        plots_dir,
+    ):
         directory.mkdir(parents=True, exist_ok=False)
 
     copied_config_path = run_dir / "config.yaml"
@@ -253,4 +262,5 @@ def create_run_context(
         logs_dir=logs_dir,
         metrics_dir=metrics_dir,
         predictions_dir=predictions_dir,
+        plots_dir=plots_dir,
     )

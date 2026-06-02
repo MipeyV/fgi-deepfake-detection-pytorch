@@ -351,11 +351,102 @@ Elle crée un run et écrit les métriques d'entraînement dans `runs/.../metric
 
 ---
 
+## Juin 2026 - Évaluation audio-only
+
+### Réalisations
+- Création de `src/evaluation/metrics.py`.
+- Ajout des métriques binaires :
+  - accuracy,
+  - precision,
+  - recall,
+  - F1-score,
+  - AUC-ROC,
+  - confusion matrix.
+- Création de `src/evaluation/evaluator.py`.
+- Ajout d'une boucle d'inférence audio-only.
+- Export des prédictions par clip dans un CSV.
+- Export des métriques globales dans un JSON.
+- Ajout de la sous-commande `main.py eval`.
+- Ajout de tests dans :
+  - `tests/evaluation/test_metrics.py`,
+  - `tests/evaluation/test_evaluator.py`,
+  - `tests/test_main.py`.
+- Smoke test réel avec `main.py eval` sur le split train.
+
+### Logique
+Le trainer donne une métrique rapide pendant l'apprentissage, mais l'évaluation doit produire des fichiers comparables entre modèles.  
+Le format choisi sépare :
+- les métriques globales dans `metrics/*.json`,
+- les prédictions détaillées dans `predictions/*.csv`.
+
+Chaque ligne de prédiction garde les métadonnées importantes :
+- `video_id`,
+- `clip_id`,
+- `clip_path`,
+- label réel,
+- label prédit,
+- probabilités real/fake,
+- indicateur `correct`.
+
+### Résultat
+La baseline audio-only peut maintenant être évaluée avec :
+
+```bash
+python3 main.py eval --config configs/baseline_audio.yaml --split train --max-batches 1 --batch-size 1 --device cpu
+```
+
+La commande écrit :
+- `runs/.../metrics/<split>_metrics.json`,
+- `runs/.../predictions/<split>_predictions.csv`.
+
+---
+
+## Juin 2026 - Plots de training
+
+### Réalisations
+- Création de `src/evaluation/plots.py`.
+- Ajout de `load_training_history()` pour lire `train_metrics.json`.
+- Ajout de `plot_training_history_svg()` pour générer une courbe SVG.
+- Ajout de `plot_metric_history_svg()` pour tracer une ou plusieurs séries par epoch.
+- Ajout de `plot_confusion_matrix_svg()` pour visualiser les résultats d'évaluation.
+- Ajout du dossier `plots/` dans chaque `RunContext`.
+- Branchement automatique après `main.py train` et `main.py eval`.
+- Ajout de tests dans `tests/evaluation/test_plots.py`.
+- Smoke test réel avec génération de `runs/.../plots/training_history.svg`.
+- Smoke test réel avec génération de `runs/.../plots/train_loss.svg`.
+- Smoke test réel avec génération de `runs/.../plots/train_accuracy.svg`.
+- Smoke test réel avec génération de `runs/.../plots/<split>_confusion_matrix.svg`.
+
+### Logique
+Les runs servent maintenant de mini système de tracking d'expériences.  
+Après les métriques JSON, il est utile de pouvoir inspecter rapidement l'évolution du modèle au fil des epochs.
+
+Le choix du SVG généré sans dépendance externe garde le projet léger et compatible avec les environnements cluster/headless.
+
+### Résultat
+Chaque run d'entraînement peut maintenant produire :
+- `metrics/train_metrics.json`,
+- `plots/training_history.svg`.
+- `plots/train_loss.svg`.
+- `plots/train_accuracy.svg`.
+
+La fonction générique permet aussi de tracer des courbes train vs validation dès que les métriques `train_loss`, `val_loss`, `train_accuracy` et `val_accuracy` seront écrites.
+
+Chaque run d'évaluation peut aussi produire :
+- `metrics/<split>_metrics.json`,
+- `predictions/<split>_predictions.csv`,
+- `plots/<split>_confusion_matrix.svg`.
+
+Cela permet de visualiser rapidement la loss, l'accuracy et les erreurs real/fake.
+
+---
+
 ## Prochaine période prévue - Training audio-only
 
 ### Objectifs
 - Ajouter validation et checkpoints.
-- Ajouter les premières métriques d'évaluation.
+- Brancher l'évaluation sur des checkpoints entraînés.
+- Générer ou utiliser des manifests val/test.
 
 ### Logique
 La prochaine étape consiste à relier les briques existantes :

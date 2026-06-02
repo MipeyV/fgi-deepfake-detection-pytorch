@@ -3,7 +3,7 @@ from pathlib import Path
 
 import yaml
 
-from main import train_audio_baseline
+from main import evaluate_audio_baseline, train_audio_baseline
 from tests.data.helpers import create_clip
 
 
@@ -19,8 +19,8 @@ def write_train_config(tmp_path: Path, manifest_path: Path) -> Path:
         "data": {
             "manifest_dir": str(tmp_path),
             "train_manifest": str(manifest_path),
-            "val_manifest": str(tmp_path / "val_manifest.csv"),
-            "test_manifest": str(tmp_path / "test_manifest.csv"),
+            "val_manifest": str(manifest_path),
+            "test_manifest": str(manifest_path),
             "label_mapping": {"real": 0, "fake": 1},
         },
         "audio": {
@@ -122,3 +122,46 @@ def test_train_audio_baseline_writes_run_metrics(tmp_path: Path) -> None:
 
     assert (run_dir / "config.yaml").is_file()
     assert (run_dir / "metrics" / "train_metrics.json").is_file()
+    assert (run_dir / "plots" / "training_history.svg").is_file()
+    assert (run_dir / "plots" / "train_loss.svg").is_file()
+    assert (run_dir / "plots" / "train_accuracy.svg").is_file()
+
+
+def test_evaluate_audio_baseline_writes_predictions_and_metrics(tmp_path: Path) -> None:
+    real_clip = tmp_path / "clips" / "real" / "000000"
+    fake_clip = tmp_path / "clips" / "fake" / "000000"
+    create_clip(real_clip)
+    create_clip(fake_clip)
+
+    manifest_path = tmp_path / "test_manifest.csv"
+    manifest_path.write_text(
+        "\n".join(
+            [
+                "clip_path,label,video_id,clip_id",
+                f"{real_clip},real,video_real,000000",
+                f"{fake_clip},fake,video_fake,000000",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    config_path = write_train_config(tmp_path, manifest_path)
+
+    evaluate_audio_baseline(
+        Namespace(
+            config=config_path,
+            split="test",
+            checkpoint=None,
+            max_batches=1,
+            batch_size=1,
+            run_id="eval-test-run",
+            runs_root=tmp_path / "runs",
+            device="cpu",
+        )
+    )
+
+    run_dir = tmp_path / "runs" / "baseline-audio" / "eval-test-run"
+
+    assert (run_dir / "config.yaml").is_file()
+    assert (run_dir / "metrics" / "test_metrics.json").is_file()
+    assert (run_dir / "predictions" / "test_predictions.csv").is_file()
+    assert (run_dir / "plots" / "test_confusion_matrix.svg").is_file()
