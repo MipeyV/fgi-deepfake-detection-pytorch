@@ -122,6 +122,17 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 - [OK] Sauvegarde de l'état Git dans `git.json`
 - [OK] Sauvegarde des métadonnées dans `metadata.json`
 
+### 10. **Entrée CLI train** (`main.py`)
+- [OK] Commande `python3 main.py train --config ...`
+- [OK] Support `--epochs`
+- [OK] Support `--max-batches`
+- [OK] Support `--batch-size`
+- [OK] Support `--run-id`
+- [OK] Support `--runs-root`
+- [OK] Support `--device`
+- [OK] Mode audio-only sans chargement des frames vidéo
+- [OK] Écriture de `metrics/train_metrics.json`
+
 ---
 
 ## À FAIRE - Ce qui est MANQUANT
@@ -157,10 +168,11 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 - [ ] Format YAML standardisé pour les futures configs
 
 ### 5. **Mise à jour main.py**
-- [ ] Support de commandes supplémentaires (train, eval)
-- [ ] Chargement de configs YAML
+- [OK] Support de la commande `train`
+- [ ] Support de la commande `eval`
+- [OK] Chargement de configs YAML pour training audio-only
 - [ ] Pipeline complet d'entraînement et d'évaluation
-- [ ] Logging et rapports
+- [ ] Logging et rapports avancés
 
 ### 6. **Améliorations Futures**
 - [ ] Optimisation des hyperparamètres
@@ -217,7 +229,7 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 2. **URGENT** : Implémenter les métriques d'évaluation
 3. **IMPORTANT** : Produire les prédictions CSV sur le test set
 4. **IMPORTANT** : Ajouter checkpoints save/load
-5. **IMPORTANT** : Brancher `main.py train` avec config + run context
+5. **IMPORTANT** : Ajouter `main.py eval`
 6. **NICE-TO-HAVE** : Ajouter logging et visualization
 7. **NICE-TO-HAVE** : Optimisation hyperparamètres
 

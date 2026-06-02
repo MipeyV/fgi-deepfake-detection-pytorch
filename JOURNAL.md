@@ -306,6 +306,51 @@ Les futurs modules d'évaluation et de checkpointing pourront écrire dans les d
 
 ---
 
+## Juin 2026 - Entrée CLI `main.py train`
+
+### Réalisations
+- Ajout de la sous-commande `train` dans `main.py`.
+- Support des options :
+  - `--config`,
+  - `--epochs`,
+  - `--max-batches`,
+  - `--batch-size`,
+  - `--run-id`,
+  - `--runs-root`,
+  - `--device`.
+- Branchement de la config YAML, du `RunContext`, du DataLoader, de l'extracteur audio, du modèle et du trainer.
+- Écriture de `train_metrics.json` dans le dossier `metrics/` du run.
+- Ajout d'un mode audio-only dans le DataLoader pour éviter de charger les frames vidéo pendant l'entraînement audio.
+- Ajout de tests d'intégration dans `tests/test_main.py`.
+- Smoke test réel avec :
+  - `main.py train`,
+  - CPU,
+  - batch size 1,
+  - une epoch,
+  - un batch.
+
+### Logique
+Le premier essai sur CPU a été tué par le système, probablement à cause de la mémoire.  
+La cause principale était que le training audio-only chargeait aussi les frames vidéo via le dataset complet.
+
+Le correctif a consisté à garder le comportement multimodal par défaut, mais à permettre au training audio-only de demander uniquement :
+- `audio`,
+- `label`,
+- métadonnées.
+
+Cela rend le smoke train beaucoup plus léger et compatible avec un noeud CPU.
+
+### Résultat
+La commande suivante fonctionne :
+
+```bash
+python3 main.py train --config configs/baseline_audio.yaml --epochs 1 --max-batches 1 --batch-size 1 --device cpu
+```
+
+Elle crée un run et écrit les métriques d'entraînement dans `runs/.../metrics/train_metrics.json`.
+
+---
+
 ## Prochaine période prévue - Training audio-only
 
 ### Objectifs
