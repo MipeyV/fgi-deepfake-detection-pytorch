@@ -117,6 +117,7 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
   - `logs/`
   - `metrics/`
   - `predictions/`
+  - `plots/`
 - [OK] Copie de la config utilisée dans `config.yaml`
 - [OK] Sauvegarde de la commande dans `command.txt`
 - [OK] Sauvegarde de l'état Git dans `git.json`
@@ -132,6 +133,33 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 - [OK] Support `--device`
 - [OK] Mode audio-only sans chargement des frames vidéo
 - [OK] Écriture de `metrics/train_metrics.json`
+
+### 11. **Évaluation audio-only** (`src/evaluation/`)
+- [OK] **metrics.py** :
+  - Accuracy
+  - Precision
+  - Recall
+  - F1-score
+  - AUC-ROC binaire
+  - Confusion matrix (`tn`, `fp`, `fn`, `tp`)
+- [OK] **evaluator.py** :
+  - Boucle d'inférence audio-only
+  - Collecte des probabilités `real/fake`
+  - Export CSV de prédictions par clip
+  - Export JSON des métriques globales
+- [OK] Commande `python3 main.py eval --config ...`
+
+### 12. **Plots de training** (`src/evaluation/plots.py`)
+- [OK] Lecture de `metrics/train_metrics.json`
+- [OK] Génération de `plots/training_history.svg`
+- [OK] Génération de `plots/train_loss.svg`
+- [OK] Génération de `plots/train_accuracy.svg`
+- [OK] Courbe loss par epoch
+- [OK] Courbe accuracy par epoch
+- [OK] Fonction générique prête pour courbes train vs val
+- [OK] Génération automatique après `main.py train`
+- [OK] Génération de `plots/<split>_confusion_matrix.svg`
+- [OK] Génération automatique après `main.py eval`
 
 ---
 
@@ -153,11 +181,16 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 - [ ] Logging d'expériences (TensorBoard, Weights&Biases, etc.)
 
 ### 3. **Métriques & Évaluation** (`src/evaluation/`)
-- [ ] Accuracy, Precision, Recall, F1-score
-- [ ] AUC-ROC et AUC-PR
-- [ ] Confusion matrix
+- [OK] Accuracy, Precision, Recall, F1-score
+- [OK] AUC-ROC
+- [ ] AUC-PR
+- [OK] Confusion matrix
+- [OK] Courbes train loss/accuracy
+- [OK] Plot confusion matrix
 - [ ] Courbes ROC et Précision-Recall
-- [ ] Rapport d'évaluation complet
+- [OK] Export `predictions/*.csv`
+- [OK] Export `metrics/*.json`
+- [ ] Rapport d'évaluation complet avec courbes
 
 ### 4. **Configuration** (`configs/`)
 - [OK] `baseline_audio.yaml` - Configuration audio-only
@@ -169,9 +202,9 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 
 ### 5. **Mise à jour main.py**
 - [OK] Support de la commande `train`
-- [ ] Support de la commande `eval`
+- [OK] Support de la commande `eval`
 - [OK] Chargement de configs YAML pour training audio-only
-- [ ] Pipeline complet d'entraînement et d'évaluation
+- [OK] Pipeline audio-only train/eval minimal
 - [ ] Logging et rapports avancés
 
 ### 6. **Améliorations Futures**
@@ -212,24 +245,24 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 - [OK] Data preprocessing & loading (100%)
 - [EN COURS] Models (baseline audio-only implémentée)
 - [EN COURS] Training (epoch audio-only + évaluation simple)
-- [TODO] Evaluation (0%)
+- [EN COURS] Evaluation (métriques + CSV/JSON audio-only)
 - [EN COURS] Configuration system (baseline audio + loader validés)
 
 **Couverture** :
 - Data layer : [OK] Complet avec tests
 - Model layer : [EN COURS] Baseline audio-only testée
 - Training layer : [EN COURS] Mini-train audio-only testé
-- Eval layer : [TODO] Non started
+- Eval layer : [EN COURS] Évaluation audio-only testée
 
 ---
 
 ## Prochaines Étapes (Priorité Décroissante)
 
 1. **URGENT** : Créer la branche `feature/training-model`
-2. **URGENT** : Implémenter les métriques d'évaluation
-3. **IMPORTANT** : Produire les prédictions CSV sur le test set
-4. **IMPORTANT** : Ajouter checkpoints save/load
-5. **IMPORTANT** : Ajouter `main.py eval`
+2. **URGENT** : Ajouter checkpoints save/load
+3. **IMPORTANT** : Brancher `main.py eval` sur checkpoints entraînés
+4. **IMPORTANT** : Générer les vrais manifests val/test si absents
+5. **IMPORTANT** : Ajouter AUC-PR, courbes ROC/PR et index global des runs
 6. **NICE-TO-HAVE** : Ajouter logging et visualization
 7. **NICE-TO-HAVE** : Optimisation hyperparamètres
 
