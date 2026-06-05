@@ -165,7 +165,7 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 - [OK] Génération de `plots/train_accuracy.svg`
 - [OK] Courbe loss par epoch
 - [OK] Courbe accuracy par epoch
-- [OK] Fonction générique prête pour courbes train vs val
+- [OK] Courbes train vs val pour loss/accuracy
 - [OK] Génération automatique après `main.py train`
 - [OK] Génération de `plots/<split>_confusion_matrix.svg`
 - [OK] Génération automatique après `main.py eval`
@@ -195,6 +195,7 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 - [ ] AUC-PR
 - [OK] Confusion matrix
 - [OK] Courbes train loss/accuracy
+- [OK] Courbes train vs val loss/accuracy
 - [OK] Plot confusion matrix
 - [ ] Courbes ROC et Précision-Recall
 - [OK] Export `predictions/*.csv`
@@ -269,8 +270,8 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 
 1. **URGENT** : Créer la branche `feature/training-model`
 2. **IMPORTANT** : Générer les vrais manifests val/test si absents
-3. **IMPORTANT** : Ajouter courbes train vs validation
-4. **IMPORTANT** : Brancher une reprise d'entraînement depuis checkpoint
+3. **IMPORTANT** : Brancher une reprise d'entraînement depuis checkpoint
+4. **IMPORTANT** : Évaluer `best.pt` sur val/test et analyser les prédictions
 5. **IMPORTANT** : Ajouter AUC-PR, courbes ROC/PR et index global des runs
 6. **NICE-TO-HAVE** : Ajouter logging et visualization
 7. **NICE-TO-HAVE** : Optimisation hyperparamètres

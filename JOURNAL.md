@@ -430,7 +430,9 @@ Chaque run d'entraînement peut maintenant produire :
 - `plots/train_loss.svg`.
 - `plots/train_accuracy.svg`.
 
-La fonction générique permet aussi de tracer des courbes train vs validation dès que les métriques `train_loss`, `val_loss`, `train_accuracy` et `val_accuracy` seront écrites.
+Quand une validation est exécutée pendant le training, le run produit aussi :
+- `plots/loss_train_vs_val.svg`,
+- `plots/accuracy_train_vs_val.svg`.
 
 Chaque run d'évaluation peut aussi produire :
 - `metrics/<split>_metrics.json`,
@@ -491,7 +493,7 @@ python3 main.py eval --config configs/baseline_audio.yaml --split test --checkpo
 ### Objectifs
 - Générer ou utiliser des manifests val/test.
 - Ajouter un vrai split validation/test exploitable pour sélectionner `best.pt` sur données tenues à part.
-- Ajouter des courbes train vs validation dans les runs.
+- Évaluer `best.pt` sur validation et test avec exports de prédictions.
 
 ### Logique
 La prochaine étape consiste à relier les briques existantes :

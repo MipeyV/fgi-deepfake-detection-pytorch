@@ -231,6 +231,10 @@ def train_audio_baseline(args: argparse.Namespace) -> None:
     plot_path = run_context.plots_dir / "training_history.svg"
     loss_plot_path = run_context.plots_dir / "train_loss.svg"
     accuracy_plot_path = run_context.plots_dir / "train_accuracy.svg"
+    loss_train_vs_val_plot_path = run_context.plots_dir / "loss_train_vs_val.svg"
+    accuracy_train_vs_val_plot_path = (
+        run_context.plots_dir / "accuracy_train_vs_val.svg"
+    )
     plot_training_history_svg(metrics_path, plot_path)
     plot_metric_history_svg(
         metrics_path=metrics_path,
@@ -246,12 +250,30 @@ def train_audio_baseline(args: argparse.Namespace) -> None:
         title="Train Accuracy",
         y_label="Accuracy",
     )
+    if history and {"val_loss", "val_accuracy"} <= set(history[-1]):
+        plot_metric_history_svg(
+            metrics_path=metrics_path,
+            output_path=loss_train_vs_val_plot_path,
+            metric_keys={"train": "loss", "val": "val_loss"},
+            title="Loss Train vs Val",
+            y_label="Loss",
+        )
+        plot_metric_history_svg(
+            metrics_path=metrics_path,
+            output_path=accuracy_train_vs_val_plot_path,
+            metric_keys={"train": "accuracy", "val": "val_accuracy"},
+            title="Accuracy Train vs Val",
+            y_label="Accuracy",
+        )
 
     print(f"Run directory: {run_context.run_dir}")
     print(f"Training metrics: {metrics_path}")
     print(f"Training plot: {plot_path}")
     print(f"Train loss plot: {loss_plot_path}")
     print(f"Train accuracy plot: {accuracy_plot_path}")
+    if loss_train_vs_val_plot_path.is_file():
+        print(f"Loss train vs val plot: {loss_train_vs_val_plot_path}")
+        print(f"Accuracy train vs val plot: {accuracy_train_vs_val_plot_path}")
 
 
 def evaluate_audio_baseline(args: argparse.Namespace) -> None:

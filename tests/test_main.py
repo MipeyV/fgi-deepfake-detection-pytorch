@@ -127,6 +127,8 @@ def test_train_audio_baseline_writes_run_metrics(tmp_path: Path) -> None:
     assert (run_dir / "plots" / "training_history.svg").is_file()
     assert (run_dir / "plots" / "train_loss.svg").is_file()
     assert (run_dir / "plots" / "train_accuracy.svg").is_file()
+    assert (run_dir / "plots" / "loss_train_vs_val.svg").is_file()
+    assert (run_dir / "plots" / "accuracy_train_vs_val.svg").is_file()
 
     evaluate_audio_baseline(
         Namespace(
