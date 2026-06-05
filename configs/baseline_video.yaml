@@ -1,0 +1,67 @@
+# Baseline video-only experiment.
+#
+# This config mirrors the audio baseline run structure while using only frame
+# tensors from the preprocessed clips.
+
+experiment:
+  name: baseline_video
+  version: 1
+  seed: 42
+  runs_root: runs
+  output_dir: runs/baseline_video
+
+data:
+  manifest_dir: data/manifests
+  train_manifest: data/manifests/train_manifest.csv
+  val_manifest: data/manifests/val_manifest.csv
+  test_manifest: data/manifests/test_manifest.csv
+  label_mapping:
+    real: 0
+    fake: 1
+
+video:
+  frame_size: 64
+
+model:
+  name: video_cnn_baseline
+  input_channels: 3
+  num_classes: 2
+  conv_channels: [16, 32, 64]
+  dense_channels: [128]
+  dropout: 0.3
+
+training:
+  device: auto
+  epochs: 20
+  batch_size: 4
+  num_workers: 0
+  optimizer:
+    name: adam
+    learning_rate: 0.0001
+    weight_decay: 0.00001
+  loss:
+    name: cross_entropy
+
+validation:
+  batch_size: 4
+  interval_epochs: 1
+  metric_for_best_checkpoint: val_loss
+
+evaluation:
+  batch_size: 4
+  metrics:
+    - accuracy
+    - precision
+    - recall
+    - f1
+    - auc
+
+checkpointing:
+  save_dir: checkpoints
+  save_best: true
+  save_last: true
+
+logging:
+  log_dir: logs
+  level: info
+  tensorboard: false

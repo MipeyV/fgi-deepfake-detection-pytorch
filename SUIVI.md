@@ -176,7 +176,7 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 
 ### 1. **Modèles** (`src/models/`)
 - [OK] Baseline audio-only (`src/models/audio_models.py`)
-- [ ] Baseline video-only (ex: 3D CNN ou ViT)
+- [OK] Baseline video-only (`src/models/video_models.py`)
 - [ ] Modèle multimodal (fusion audio-vidéo)
 - [ ] Modèle inspiré FGI (fine-grained inconsistency detection)
 - [ ] Encodeurs pour audio et vidéo séparément
@@ -204,7 +204,7 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 
 ### 4. **Configuration** (`configs/`)
 - [OK] `baseline_audio.yaml` - Configuration audio-only
-- [ ] `baseline_video.yaml` - Configuration video-only
+- [OK] `baseline_video.yaml` - Configuration video-only
 - [ ] `multimodal.yaml` - Configuration multimodal
 - [ ] `fgi_inspired.yaml` - Configuration FGI
 - [OK] Loader Python pour lire et valider la config audio baseline
@@ -215,6 +215,7 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 - [OK] Support de la commande `eval`
 - [OK] Chargement de configs YAML pour training audio-only
 - [OK] Pipeline audio-only train/eval minimal
+- [OK] Pipeline video-only train/eval minimal
 - [ ] Logging et rapports avancés
 
 ### 6. **Améliorations Futures**
@@ -253,9 +254,9 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 
 **Modules implémentés** : 1/5 (20%)
 - [OK] Data preprocessing & loading (100%)
-- [EN COURS] Models (baseline audio-only implémentée)
-- [EN COURS] Training (epoch audio-only + évaluation simple)
-- [EN COURS] Evaluation (métriques + CSV/JSON audio-only)
+- [EN COURS] Models (baselines audio-only et video-only implémentées)
+- [EN COURS] Training (audio-only et video-only testés)
+- [EN COURS] Evaluation (métriques + CSV/JSON audio/video)
 - [EN COURS] Configuration system (baseline audio + loader validés)
 
 **Couverture** :

@@ -488,19 +488,58 @@ python3 main.py eval --config configs/baseline_audio.yaml --split test --checkpo
 
 ---
 
-## Prochaine période prévue - Training audio-only
+## Juin 2026 - Baseline vidéo-only
 
-### Objectifs
-- Générer ou utiliser des manifests val/test.
-- Ajouter un vrai split validation/test exploitable pour sélectionner `best.pt` sur données tenues à part.
-- Évaluer `best.pt` sur validation et test avec exports de prédictions.
+### Réalisations
+- Création de `configs/baseline_video.yaml`.
+- Création de `src/models/video_models.py`.
+- Implémentation de `VideoCNNBaseline` avec convolutions 3D.
+- Ajout d'une configuration `video.frame_size` pour redimensionner les frames avant entraînement.
+- Ajout de `build_frame_resize_transform()` dans `src/data/dataset.py`.
+- Ajout de boucles `train_video_one_epoch()` et `evaluate_video_model()`.
+- Ajout de `evaluate_video_classifier()` pour produire métriques et prédictions CSV.
+- Branchement de `main.py train` et `main.py eval` sur la baseline vidéo via `model.name`.
+- Réutilisation des runs, checkpoints, métriques et plots existants.
+- Ajout de tests pour le modèle vidéo, le trainer vidéo, l'evaluator vidéo, la config vidéo et l'intégration train/eval vidéo.
 
 ### Logique
-La prochaine étape consiste à relier les briques existantes :
-- manifests,
-- dataset,
-- features audio,
-- modèle,
-- config YAML.
+Avant d'implémenter une approche multimodale ou FGI-inspired, il fallait valider que le pipeline vidéo fonctionne seul.  
+Les clips réels contiennent 30 frames en 1920x1080, ce qui rend un training brut trop lourd pour CPU.
 
-Une fois ces éléments connectés, le projet pourra lancer une première expérience audio-only complète.
+La baseline vidéo redimensionne donc les frames à une taille configurable, `64x64` par défaut, afin de tester la chaîne complète sans saturer la mémoire.
+
+### Résultat
+La commande suivante fonctionne sur un smoke test CPU :
+
+```bash
+python3 main.py train --config configs/baseline_video.yaml --epochs 1 --max-batches 1 --batch-size 1 --device cpu
+```
+
+Elle crée un run `baseline-video` avec :
+- métriques train/val,
+- checkpoints `last.pt` et `best.pt`,
+- plots train/val.
+
+Le checkpoint peut ensuite être évalué avec :
+
+```bash
+python3 main.py eval --config configs/baseline_video.yaml --split test --checkpoint runs/.../checkpoints/best.pt --max-batches 1 --batch-size 1 --device cpu
+```
+
+---
+
+## Prochaine période prévue - Baseline multimodale
+
+### Objectifs
+- Ajouter une baseline audio-vidéo simple.
+- Réutiliser les encodeurs audio et vidéo déjà testés.
+- Fusionner les embeddings audio et vidéo par concaténation.
+- Comparer audio-only, video-only et audio-video sur les mêmes splits.
+
+### Logique
+Le projet dispose maintenant de deux baselines unimodales :
+- audio-only,
+- video-only.
+
+Avant de passer à une approche FGI-inspired plus fine, il faut créer une baseline multimodale simple.  
+Elle servira de référence pour mesurer si la fusion audio-vidéo apporte déjà un gain par rapport aux modèles séparés.

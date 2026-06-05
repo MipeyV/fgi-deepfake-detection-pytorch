@@ -52,6 +52,27 @@ def test_create_audio_only_dataloader_skips_frames(tmp_path: Path) -> None:
     assert batch["label"].shape == (1,)
 
 
+def test_create_dataloader_can_resize_frames(tmp_path: Path) -> None:
+    clip_path = tmp_path / "preprocessed" / "real" / "video_001" / "clips" / "000000"
+    create_clip(clip_path, num_frames=3)
+
+    manifest_path = tmp_path / "manifest.csv"
+    write_manifest(manifest_path, clip_path)
+
+    from src.data.dataset import build_frame_resize_transform
+
+    dataloader = create_dataloader(
+        manifest_path,
+        batch_size=1,
+        shuffle=False,
+        num_workers=0,
+        frame_transform=build_frame_resize_transform(4),
+    )
+    batch = next(iter(dataloader))
+
+    assert batch["frames"].shape == (1, 3, 3, 4, 4)
+
+
 def test_create_dataloader_raises_for_missing_manifest(tmp_path: Path) -> None:
     manifest_path = tmp_path / "manifest.csv"
 

@@ -10,7 +10,12 @@ import yaml
 
 Config = dict[str, Any]
 
-__all__ = ["Config", "load_config", "validate_audio_baseline_config"]
+__all__ = [
+    "Config",
+    "load_config",
+    "validate_audio_baseline_config",
+    "validate_video_baseline_config",
+]
 
 
 REQUIRED_AUDIO_BASELINE_SECTIONS = {
@@ -18,6 +23,18 @@ REQUIRED_AUDIO_BASELINE_SECTIONS = {
     "data",
     "audio",
     "features",
+    "model",
+    "training",
+    "validation",
+    "evaluation",
+    "checkpointing",
+    "logging",
+}
+
+REQUIRED_VIDEO_BASELINE_SECTIONS = {
+    "experiment",
+    "data",
+    "video",
     "model",
     "training",
     "validation",
@@ -182,6 +199,57 @@ def validate_audio_baseline_config(config: Config) -> None:
     _require_positive_number(config["features"]["power"], "features.power")
     _require_positive_number(config["model"]["input_channels"], "model.input_channels")
     _require_positive_number(config["model"]["num_classes"], "model.num_classes")
+    _require_positive_number(config["training"]["epochs"], "training.epochs")
+    _require_positive_number(config["training"]["batch_size"], "training.batch_size")
+    _require_positive_number(config["validation"]["batch_size"], "validation.batch_size")
+    _require_positive_number(config["evaluation"]["batch_size"], "evaluation.batch_size")
+
+    if not config["model"]["conv_channels"]:
+        raise ValueError("model.conv_channels must contain at least one value")
+
+    if not config["evaluation"]["metrics"]:
+        raise ValueError("evaluation.metrics must contain at least one metric")
+
+
+def validate_video_baseline_config(config: Config) -> None:
+    """Validate the baseline video experiment configuration."""
+    _require_sections(config, REQUIRED_VIDEO_BASELINE_SECTIONS)
+
+    _require_keys(config["experiment"], "experiment", {"name", "seed", "output_dir"})
+    _require_keys(
+        config["data"],
+        "data",
+        {"train_manifest", "val_manifest", "test_manifest", "label_mapping"},
+    )
+    _require_keys(config["video"], "video", {"frame_size"})
+    _require_keys(
+        config["model"],
+        "model",
+        {"name", "input_channels", "num_classes", "conv_channels", "dropout"},
+    )
+    _require_keys(
+        config["training"],
+        "training",
+        {"device", "epochs", "batch_size", "optimizer", "loss"},
+    )
+    _require_keys(config["validation"], "validation", {"batch_size"})
+    _require_keys(config["evaluation"], "evaluation", {"batch_size", "metrics"})
+    _require_keys(config["checkpointing"], "checkpointing", {"save_dir"})
+    _require_keys(config["logging"], "logging", {"log_dir", "level"})
+
+    if config["model"]["name"] != "video_cnn_baseline":
+        raise ValueError(f"Unsupported video model: {config['model']['name']}")
+
+    expected_label_mapping = {"real": 0, "fake": 1}
+    if config["data"]["label_mapping"] != expected_label_mapping:
+        raise ValueError(
+            "data.label_mapping must be {'real': 0, 'fake': 1} "
+            "for the baseline video task"
+        )
+
+    _require_positive_number(config["model"]["input_channels"], "model.input_channels")
+    _require_positive_number(config["model"]["num_classes"], "model.num_classes")
+    _require_positive_number(config["video"]["frame_size"], "video.frame_size")
     _require_positive_number(config["training"]["epochs"], "training.epochs")
     _require_positive_number(config["training"]["batch_size"], "training.batch_size")
     _require_positive_number(config["validation"]["batch_size"], "validation.batch_size")

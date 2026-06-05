@@ -2,7 +2,11 @@ from pathlib import Path
 
 import pytest
 
-from src.config import load_config, validate_audio_baseline_config
+from src.config import (
+    load_config,
+    validate_audio_baseline_config,
+    validate_video_baseline_config,
+)
 
 
 def test_load_config_reads_yaml_mapping(tmp_path: Path) -> None:
@@ -33,6 +37,12 @@ def test_validate_audio_baseline_config_accepts_project_config() -> None:
     validate_audio_baseline_config(config)
 
 
+def test_validate_video_baseline_config_accepts_project_config() -> None:
+    config = load_config("configs/baseline_video.yaml")
+
+    validate_video_baseline_config(config)
+
+
 def test_validate_audio_baseline_config_rejects_missing_section() -> None:
     config = load_config("configs/baseline_audio.yaml")
     config.pop("model")
@@ -55,3 +65,11 @@ def test_validate_audio_baseline_config_rejects_empty_metrics() -> None:
 
     with pytest.raises(ValueError, match="evaluation.metrics"):
         validate_audio_baseline_config(config)
+
+
+def test_validate_video_baseline_config_rejects_unknown_model() -> None:
+    config = load_config("configs/baseline_video.yaml")
+    config["model"]["name"] = "unknown"
+
+    with pytest.raises(ValueError, match="Unsupported video model"):
+        validate_video_baseline_config(config)

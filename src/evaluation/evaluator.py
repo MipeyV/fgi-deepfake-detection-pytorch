@@ -21,6 +21,7 @@ __all__ = [
     "AudioEvaluationResult",
     "PredictionRecord",
     "evaluate_audio_classifier",
+    "evaluate_video_classifier",
     "write_evaluation_outputs",
     "write_metrics_json",
     "write_predictions_csv",
@@ -145,6 +146,73 @@ def evaluate_audio_classifier(
 
             features = feature_extractor(audio)
             logits = model(features)
+            probabilities = torch.softmax(logits, dim=1)
+            predictions = probabilities.argmax(dim=1)
+
+            all_labels.append(labels.cpu())
+            all_predictions.append(predictions.cpu())
+            all_prob_fake.append(probabilities[:, 1].cpu())
+
+            for item_index in range(labels.size(0)):
+                label_idx = int(labels[item_index].item())
+                pred_idx = int(predictions[item_index].item())
+                prob_real = float(probabilities[item_index, 0].item())
+                prob_fake = float(probabilities[item_index, 1].item())
+
+                records.append(
+                    PredictionRecord(
+                        video_id=_metadata_value(batch, "video_id", item_index),
+                        clip_id=_metadata_value(batch, "clip_id", item_index),
+                        clip_path=_metadata_value(batch, "clip_path", item_index),
+                        label=_label_name(label_idx),
+                        label_idx=label_idx,
+                        pred_label=_label_name(pred_idx),
+                        pred_idx=pred_idx,
+                        prob_real=prob_real,
+                        prob_fake=prob_fake,
+                        correct=label_idx == pred_idx,
+                    )
+                )
+
+    if not records:
+        raise ValueError("No samples were evaluated")
+
+    labels_tensor = torch.cat(all_labels)
+    predictions_tensor = torch.cat(all_predictions)
+    prob_fake_tensor = torch.cat(all_prob_fake)
+    metrics = compute_binary_classification_metrics(
+        labels=labels_tensor,
+        predictions=predictions_tensor,
+        scores=prob_fake_tensor,
+    )
+
+    return AudioEvaluationResult(metrics=metrics, predictions=records)
+
+
+def evaluate_video_classifier(
+    model: nn.Module,
+    dataloader: Iterable[dict],
+    device: torch.device,
+    max_batches: int | None = None,
+) -> AudioEvaluationResult:
+    """Evaluate a video classifier and collect per-sample predictions."""
+    model.to(device)
+    model.eval()
+
+    all_labels: list[torch.Tensor] = []
+    all_predictions: list[torch.Tensor] = []
+    all_prob_fake: list[torch.Tensor] = []
+    records: list[PredictionRecord] = []
+
+    with torch.no_grad():
+        for batch_index, batch in enumerate(dataloader):
+            if max_batches is not None and batch_index >= max_batches:
+                break
+
+            frames = batch["frames"].to(device)
+            labels = batch["label"].to(device)
+
+            logits = model(frames)
             probabilities = torch.softmax(logits, dim=1)
             predictions = probabilities.argmax(dim=1)
 
