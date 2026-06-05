@@ -41,6 +41,10 @@ training:
     weight_decay: 0.00001
   loss:
     name: cross_entropy
+  early_stopping:
+    enabled: true
+    patience: 5
+    min_delta: 0.001
 
 validation:
   batch_size: 4

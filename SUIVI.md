@@ -185,6 +185,7 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 - [OK] Boucle d'entraînement de base audio-only
 - [OK] Gestion des checkpoints (save/load)
 - [OK] Évaluation loss/accuracy hors entraînement
+- [OK] Early stopping sur métrique de validation
 - [ ] Learning rate scheduling
 - [ ] Support GPU/Multi-GPU (si nécessaire)
 - [ ] Logging d'expériences (TensorBoard, Weights&Biases, etc.)
@@ -218,7 +219,12 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 - [OK] Pipeline video-only train/eval minimal
 - [ ] Logging et rapports avancés
 
-### 6. **Améliorations Futures**
+### 6. **Jobs cluster** (`jobs/`)
+- [OK] Script Slurm audio baseline
+- [OK] Script Slurm video baseline
+- [OK] Paramétrage par variables d'environnement pour smoke tests
+
+### 7. **Améliorations Futures**
 - [ ] Optimisation des hyperparamètres
 - [ ] Data augmentation pour audio et vidéo
 - [ ] Stratégies de régularisation

@@ -526,6 +526,54 @@ Le checkpoint peut ensuite être évalué avec :
 python3 main.py eval --config configs/baseline_video.yaml --split test --checkpoint runs/.../checkpoints/best.pt --max-batches 1 --batch-size 1 --device cpu
 ```
 
+## Juin 2026 - Setup training cluster et garde-fous
+
+### Réalisations
+- Création de `src/training/early_stopping.py`.
+- Branchement de l'early stopping dans les boucles audio-only et video-only.
+- Suivi de la métrique configurée, actuellement `val_loss`.
+- Support de :
+  - `training.early_stopping.enabled`,
+  - `training.early_stopping.patience`,
+  - `training.early_stopping.min_delta`.
+- Ajout de l'early stopping dans `configs/baseline_video.yaml`.
+- Création de scripts Slurm :
+  - `jobs/train_audio_baseline.sbatch`,
+  - `jobs/train_video_baseline.sbatch`.
+- Scripts paramétrables via variables d'environnement :
+  - `CONFIG`,
+  - `EPOCHS`,
+  - `BATCH_SIZE`,
+  - `DEVICE`,
+  - `MAX_BATCHES`,
+  - `VENV_PATH`.
+- Ajout de tests dans `tests/training/test_early_stopping.py`.
+
+### Logique
+Avant de lancer des entraînements plus longs sur cluster, il fallait éviter deux risques :
+- continuer à entraîner après dégradation de la validation,
+- lancer des jobs Slurm non reproductibles ou difficiles à adapter.
+
+L'early stopping complète les checkpoints :
+- `best.pt` garde le meilleur modèle selon validation,
+- `last.pt` garde le dernier état,
+- l'entraînement s'arrête si la métrique suivie ne s'améliore plus.
+
+### Résultat
+Les deux baselines peuvent être lancées sur cluster avec :
+
+```bash
+sbatch jobs/train_audio_baseline.sbatch
+sbatch jobs/train_video_baseline.sbatch
+```
+
+Pour un smoke test Slurm court :
+
+```bash
+MAX_BATCHES=2 EPOCHS=3 sbatch jobs/train_audio_baseline.sbatch
+MAX_BATCHES=2 EPOCHS=3 sbatch jobs/train_video_baseline.sbatch
+```
+
 ---
 
 ## Prochaine période prévue - Baseline multimodale
