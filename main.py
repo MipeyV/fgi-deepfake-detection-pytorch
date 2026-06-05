@@ -32,6 +32,7 @@ from src.training.checkpoints import (
     load_model_checkpoint,
     save_training_checkpoint,
 )
+from src.training.early_stopping import build_early_stopping_state
 from src.training.trainer import (
     build_optimizer,
     evaluate_audio_model,
@@ -221,6 +222,7 @@ def train_audio_baseline(args: argparse.Namespace) -> None:
         "val_loss" if val_loader is not None else "loss",
     )
     best_metric_value = None
+    early_stopping = build_early_stopping_state(training_config, best_metric_name)
 
     for epoch in range(1, epochs + 1):
         metrics = train_one_epoch(
@@ -285,6 +287,16 @@ def train_audio_baseline(args: argparse.Namespace) -> None:
                 best_metric_value=best_metric_value,
             )
 
+        should_stop = False
+        if early_stopping is not None and early_stopping.update(epoch_metrics):
+            epoch_metrics["early_stopped"] = True
+            print(
+                "early stopping triggered "
+                f"after {early_stopping.bad_epochs} non-improving epochs "
+                f"on {early_stopping.metric_name}"
+            )
+            should_stop = True
+
         if save_last:
             save_training_checkpoint(
                 checkpoint_path=run_context.checkpoints_dir / "last.pt",
@@ -296,6 +308,9 @@ def train_audio_baseline(args: argparse.Namespace) -> None:
                 best_metric_name=best_metric_name,
                 best_metric_value=best_metric_value,
             )
+
+        if should_stop:
+            break
 
     metrics_path = run_context.metrics_dir / "train_metrics.json"
     write_json(metrics_path, history)
@@ -355,6 +370,7 @@ def train_video_baseline(args: argparse.Namespace) -> None:
         "val_loss" if val_loader is not None else "loss",
     )
     best_metric_value = None
+    early_stopping = build_early_stopping_state(training_config, best_metric_name)
 
     for epoch in range(1, epochs + 1):
         metrics = train_video_one_epoch(
@@ -417,6 +433,16 @@ def train_video_baseline(args: argparse.Namespace) -> None:
                 best_metric_value=best_metric_value,
             )
 
+        should_stop = False
+        if early_stopping is not None and early_stopping.update(epoch_metrics):
+            epoch_metrics["early_stopped"] = True
+            print(
+                "early stopping triggered "
+                f"after {early_stopping.bad_epochs} non-improving epochs "
+                f"on {early_stopping.metric_name}"
+            )
+            should_stop = True
+
         if save_last:
             save_training_checkpoint(
                 checkpoint_path=run_context.checkpoints_dir / "last.pt",
@@ -428,6 +454,9 @@ def train_video_baseline(args: argparse.Namespace) -> None:
                 best_metric_name=best_metric_name,
                 best_metric_value=best_metric_value,
             )
+
+        if should_stop:
+            break
 
     metrics_path = run_context.metrics_dir / "train_metrics.json"
     write_json(metrics_path, history)
