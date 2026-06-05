@@ -108,6 +108,11 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
   - Évaluation loss/accuracy sans mise à jour des poids
   - Support `max_batches` pour smoke tests et overfit rapide
   - Test réel sur mini-batch depuis `data/manifests/train_manifest.csv`
+- [OK] **checkpoints.py** :
+  - Sauvegarde PyTorch `.pt`
+  - `last.pt` pour la dernière epoch
+  - `best.pt` selon la métrique configurée
+  - Chargement des poids pour évaluation
 
 ### 9. **Organisation des runs** (`src/runs.py`)
 - [OK] Génération de `run_id`
@@ -133,6 +138,9 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 - [OK] Support `--device`
 - [OK] Mode audio-only sans chargement des frames vidéo
 - [OK] Écriture de `metrics/train_metrics.json`
+- [OK] Écriture de `checkpoints/last.pt`
+- [OK] Écriture de `checkpoints/best.pt`
+- [OK] Validation par epoch si `val_manifest` existe
 
 ### 11. **Évaluation audio-only** (`src/evaluation/`)
 - [OK] **metrics.py** :
@@ -148,6 +156,7 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
   - Export CSV de prédictions par clip
   - Export JSON des métriques globales
 - [OK] Commande `python3 main.py eval --config ...`
+- [OK] Chargement optionnel d'un checkpoint entraîné via `--checkpoint`
 
 ### 12. **Plots de training** (`src/evaluation/plots.py`)
 - [OK] Lecture de `metrics/train_metrics.json`
@@ -174,7 +183,7 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 
 ### 2. **Logique d'Entraînement** (`src/training/`)
 - [OK] Boucle d'entraînement de base audio-only
-- [ ] Gestion des checkpoints (save/load)
+- [OK] Gestion des checkpoints (save/load)
 - [OK] Évaluation loss/accuracy hors entraînement
 - [ ] Learning rate scheduling
 - [ ] Support GPU/Multi-GPU (si nécessaire)
@@ -259,9 +268,9 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 ## Prochaines Étapes (Priorité Décroissante)
 
 1. **URGENT** : Créer la branche `feature/training-model`
-2. **URGENT** : Ajouter checkpoints save/load
-3. **IMPORTANT** : Brancher `main.py eval` sur checkpoints entraînés
-4. **IMPORTANT** : Générer les vrais manifests val/test si absents
+2. **IMPORTANT** : Générer les vrais manifests val/test si absents
+3. **IMPORTANT** : Ajouter courbes train vs validation
+4. **IMPORTANT** : Brancher une reprise d'entraînement depuis checkpoint
 5. **IMPORTANT** : Ajouter AUC-PR, courbes ROC/PR et index global des runs
 6. **NICE-TO-HAVE** : Ajouter logging et visualization
 7. **NICE-TO-HAVE** : Optimisation hyperparamètres

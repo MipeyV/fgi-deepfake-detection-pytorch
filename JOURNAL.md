@@ -441,12 +441,57 @@ Cela permet de visualiser rapidement la loss, l'accuracy et les erreurs real/fak
 
 ---
 
+## Juin 2026 - Checkpoints training audio-only
+
+### Réalisations
+- Création de `src/training/checkpoints.py`.
+- Ajout de la sauvegarde de checkpoints PyTorch `.pt`.
+- Sauvegarde automatique de :
+  - `checkpoints/last.pt`,
+  - `checkpoints/best.pt`.
+- Stockage dans chaque checkpoint :
+  - epoch,
+  - poids du modèle,
+  - état de l'optimizer,
+  - métriques de l'epoch,
+  - config utilisée,
+  - métrique de sélection du meilleur checkpoint.
+- Branchement de `main.py train` sur le checkpointing.
+- Branchement de `main.py train` sur une validation par epoch quand `val_manifest` existe.
+- Mise à jour de `configs/baseline_audio.yaml` pour sélectionner le meilleur checkpoint avec `val_loss`.
+- Ajout de tests dans `tests/training/test_checkpoints.py`.
+- Mise à jour du test d'intégration `tests/test_main.py` pour vérifier la création de `last.pt` et `best.pt`.
+
+### Logique
+L'évaluation produit maintenant des métriques et des prédictions, mais il fallait pouvoir évaluer un modèle réellement entraîné.  
+Les checkpoints rendent les runs réutilisables :
+- `last.pt` permet de reprendre ou inspecter la dernière epoch,
+- `best.pt` permet de conserver automatiquement le meilleur modèle observé.
+
+Le choix de `val_loss` comme métrique de sélection est cohérent avec la boucle actuelle, qui calcule déjà loss et accuracy pendant la validation.
+
+### Résultat
+Un entraînement audio-only peut maintenant produire des fichiers de modèle dans :
+
+```bash
+runs/.../checkpoints/last.pt
+runs/.../checkpoints/best.pt
+```
+
+Ces fichiers peuvent ensuite être utilisés par l'évaluation avec :
+
+```bash
+python3 main.py eval --config configs/baseline_audio.yaml --split test --checkpoint runs/.../checkpoints/best.pt
+```
+
+---
+
 ## Prochaine période prévue - Training audio-only
 
 ### Objectifs
-- Ajouter validation et checkpoints.
-- Brancher l'évaluation sur des checkpoints entraînés.
 - Générer ou utiliser des manifests val/test.
+- Ajouter un vrai split validation/test exploitable pour sélectionner `best.pt` sur données tenues à part.
+- Ajouter des courbes train vs validation dans les runs.
 
 ### Logique
 La prochaine étape consiste à relier les briques existantes :

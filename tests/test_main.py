@@ -64,7 +64,7 @@ def write_train_config(tmp_path: Path, manifest_path: Path) -> Path:
         "validation": {
             "batch_size": 2,
             "interval_epochs": 1,
-            "metric_for_best_checkpoint": "val_auc",
+            "metric_for_best_checkpoint": "val_loss",
         },
         "evaluation": {
             "batch_size": 2,
@@ -122,9 +122,29 @@ def test_train_audio_baseline_writes_run_metrics(tmp_path: Path) -> None:
 
     assert (run_dir / "config.yaml").is_file()
     assert (run_dir / "metrics" / "train_metrics.json").is_file()
+    assert (run_dir / "checkpoints" / "last.pt").is_file()
+    assert (run_dir / "checkpoints" / "best.pt").is_file()
     assert (run_dir / "plots" / "training_history.svg").is_file()
     assert (run_dir / "plots" / "train_loss.svg").is_file()
     assert (run_dir / "plots" / "train_accuracy.svg").is_file()
+
+    evaluate_audio_baseline(
+        Namespace(
+            config=config_path,
+            split="test",
+            checkpoint=run_dir / "checkpoints" / "best.pt",
+            max_batches=1,
+            batch_size=1,
+            run_id="checkpoint-eval-run",
+            runs_root=tmp_path / "runs",
+            device="cpu",
+        )
+    )
+
+    eval_run_dir = tmp_path / "runs" / "baseline-audio" / "checkpoint-eval-run"
+
+    assert (eval_run_dir / "metrics" / "test_metrics.json").is_file()
+    assert (eval_run_dir / "predictions" / "test_predictions.csv").is_file()
 
 
 def test_evaluate_audio_baseline_writes_predictions_and_metrics(tmp_path: Path) -> None:

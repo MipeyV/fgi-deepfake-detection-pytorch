@@ -69,7 +69,7 @@ training:
 validation:
   batch_size: 32
   interval_epochs: 1
-  metric_for_best_checkpoint: val_auc
+  metric_for_best_checkpoint: val_loss
 
 evaluation:
   batch_size: 32
