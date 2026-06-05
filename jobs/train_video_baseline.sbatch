@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 #SBATCH --job-name=fgi-video
+#SBATCH --partition=3090
 #SBATCH --output=jobs/logs/%x-%j.out
 #SBATCH --error=jobs/logs/%x-%j.err
 #SBATCH --time=06:00:00

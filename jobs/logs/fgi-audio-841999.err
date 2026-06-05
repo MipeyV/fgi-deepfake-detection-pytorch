@@ -1,0 +1,48 @@
+/home/infres/mvo-23/.local/lib/python3.12/site-packages/torch/cuda/__init__.py:384: UserWarning: Found GPU0 Tesla P100-PCIE-16GB which is of compute capability (CC) 6.0.
+The following list shows the CCs this version of PyTorch was built for and the hardware CCs it supports:
+- 7.5 which supports hardware CC >=7.5,<8.0
+- 8.0 which supports hardware CC >=8.0,<9.0 except {8.7}
+- 8.6 which supports hardware CC >=8.6,<9.0 except {8.7}
+- 9.0 which supports hardware CC >=9.0,<10.0
+- 10.0 which supports hardware CC >=10.0,<11.0 except {10.1}
+- 12.0 which supports hardware CC >=12.0,<13.0
+Please follow the instructions at https://pytorch.org/get-started/locally/ to install a PyTorch release that supports one of these CUDA versions: 12.6
+  _warn_unsupported_code(d, device_cc, code_ccs)
+/home/infres/mvo-23/.local/lib/python3.12/site-packages/torch/cuda/__init__.py:502: UserWarning: 
+Tesla P100-PCIE-16GB with CUDA capability sm_60 is not compatible with the current PyTorch installation.
+The current PyTorch install supports CUDA capabilities sm_75 sm_80 sm_86 sm_90 sm_100 sm_120.
+If you want to use the Tesla P100-PCIE-16GB GPU with PyTorch, please check the instructions at https://pytorch.org/get-started/locally/
+
+  queued_call()
+Traceback (most recent call last):
+  File "/home/infres/mvo-23/projects/fgi-deepfake-detection-pytorch/main.py", line 640, in <module>
+    main()
+  File "/home/infres/mvo-23/projects/fgi-deepfake-detection-pytorch/main.py", line 622, in main
+    train_audio_baseline(args)
+  File "/home/infres/mvo-23/projects/fgi-deepfake-detection-pytorch/main.py", line 228, in train_audio_baseline
+    metrics = train_one_epoch(
+              ^^^^^^^^^^^^^^^^
+  File "/home/infres/mvo-23/projects/fgi-deepfake-detection-pytorch/src/training/trainer.py", line 216, in train_one_epoch
+    features = feature_extractor(audio)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/infres/mvo-23/.local/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1778, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/infres/mvo-23/.local/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1789, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/infres/mvo-23/projects/fgi-deepfake-detection-pytorch/src/data/audio_feature.py", line 229, in forward
+    stft = torch.stft(
+           ^^^^^^^^^^^
+  File "/home/infres/mvo-23/.local/lib/python3.12/site-packages/torch/functional.py", line 679, in stft
+    input = F.pad(input.view(extended_shape), [pad, pad], pad_mode)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/infres/mvo-23/.local/lib/python3.12/site-packages/torch/nn/functional.py", line 5462, in pad
+    return torch._C._nn.pad(input, pad, mode, value)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+torch.AcceleratorError: CUDA error: no kernel image is available for execution on the device
+Search for `cudaErrorNoKernelImageForDevice' in https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__TYPES.html for more information.
+CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1
+Compile with `TORCH_USE_CUDA_DSA` to enable device-side assertions.
+
