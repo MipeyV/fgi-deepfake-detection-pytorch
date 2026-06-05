@@ -1,0 +1,1 @@
+Running command: python3 main.py train --config configs/baseline_audio.yaml --epochs 30 --batch-size 32 --device cuda
