@@ -17,7 +17,17 @@ from src.evaluation.plots import (
 )
 from src.models.audio_models import build_audio_model
 from src.runs import create_run_context
-from src.training.trainer import build_optimizer, resolve_device, train_one_epoch
+from src.training.checkpoints import (
+    checkpoint_metric_is_better,
+    load_model_checkpoint,
+    save_training_checkpoint,
+)
+from src.training.trainer import (
+    build_optimizer,
+    evaluate_audio_model,
+    resolve_device,
+    train_one_epoch,
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -113,6 +123,16 @@ def train_audio_baseline(args: argparse.Namespace) -> None:
         num_workers=training_config["num_workers"],
         include_frames=False,
     )
+    val_manifest_path = Path(config["data"]["val_manifest"])
+    val_loader = None
+    if val_manifest_path.is_file():
+        val_loader = create_dataloader(
+            manifest_path=val_manifest_path,
+            batch_size=config["validation"]["batch_size"],
+            shuffle=False,
+            num_workers=training_config["num_workers"],
+            include_frames=False,
+        )
     feature_extractor = build_audio_feature_extractor(
         features_config=config["features"],
         sample_rate=audio_config["sample_rate"],
@@ -122,6 +142,14 @@ def train_audio_baseline(args: argparse.Namespace) -> None:
     criterion = torch.nn.CrossEntropyLoss()
 
     history = []
+    checkpointing_config = config["checkpointing"]
+    save_last = checkpointing_config.get("save_last", True)
+    save_best = checkpointing_config.get("save_best", True)
+    best_metric_name = config["validation"].get(
+        "metric_for_best_checkpoint",
+        "val_loss" if val_loader is not None else "loss",
+    )
+    best_metric_value = None
 
     for epoch in range(1, epochs + 1):
         metrics = train_one_epoch(
@@ -134,6 +162,25 @@ def train_audio_baseline(args: argparse.Namespace) -> None:
             max_batches=args.max_batches,
         )
         epoch_metrics = {"epoch": epoch, **asdict(metrics)}
+
+        if val_loader is not None:
+            val_metrics = evaluate_audio_model(
+                model=model,
+                feature_extractor=feature_extractor,
+                dataloader=val_loader,
+                criterion=criterion,
+                device=device,
+                max_batches=args.max_batches,
+            )
+            epoch_metrics.update(
+                {
+                    "val_loss": val_metrics.loss,
+                    "val_accuracy": val_metrics.accuracy,
+                    "val_num_samples": val_metrics.num_samples,
+                    "val_num_batches": val_metrics.num_batches,
+                }
+            )
+
         history.append(epoch_metrics)
 
         print(
@@ -143,6 +190,41 @@ def train_audio_baseline(args: argparse.Namespace) -> None:
             f"accuracy={metrics.accuracy:.4f} "
             f"samples={metrics.num_samples}"
         )
+
+        metric_name = best_metric_name
+        if metric_name not in epoch_metrics:
+            metric_name = "val_loss" if "val_loss" in epoch_metrics else "loss"
+
+        current_metric_value = float(epoch_metrics[metric_name])
+        if save_best and checkpoint_metric_is_better(
+            current_metric_value,
+            best_metric_value,
+            metric_name,
+        ):
+            best_metric_name = metric_name
+            best_metric_value = current_metric_value
+            save_training_checkpoint(
+                checkpoint_path=run_context.checkpoints_dir / "best.pt",
+                model=model,
+                optimizer=optimizer,
+                epoch=epoch,
+                metrics=epoch_metrics,
+                config=config,
+                best_metric_name=best_metric_name,
+                best_metric_value=best_metric_value,
+            )
+
+        if save_last:
+            save_training_checkpoint(
+                checkpoint_path=run_context.checkpoints_dir / "last.pt",
+                model=model,
+                optimizer=optimizer,
+                epoch=epoch,
+                metrics=epoch_metrics,
+                config=config,
+                best_metric_name=best_metric_name,
+                best_metric_value=best_metric_value,
+            )
 
     metrics_path = run_context.metrics_dir / "train_metrics.json"
     write_json(metrics_path, history)
@@ -170,25 +252,6 @@ def train_audio_baseline(args: argparse.Namespace) -> None:
     print(f"Training plot: {plot_path}")
     print(f"Train loss plot: {loss_plot_path}")
     print(f"Train accuracy plot: {accuracy_plot_path}")
-
-
-def load_model_checkpoint(model: torch.nn.Module, checkpoint_path: Path) -> None:
-    """Load model weights from a checkpoint file.
-
-    Args:
-        model: Model instance to update in place.
-        checkpoint_path: Path to a PyTorch checkpoint. The checkpoint may be a
-            raw state dict or a dictionary containing ``model_state_dict``.
-
-    Raises:
-        FileNotFoundError: If ``checkpoint_path`` does not exist.
-    """
-    if not checkpoint_path.is_file():
-        raise FileNotFoundError(f"Checkpoint does not exist: {checkpoint_path}")
-
-    checkpoint = torch.load(checkpoint_path, map_location="cpu")
-    state_dict = checkpoint.get("model_state_dict", checkpoint)
-    model.load_state_dict(state_dict)
 
 
 def evaluate_audio_baseline(args: argparse.Namespace) -> None:
