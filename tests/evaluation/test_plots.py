@@ -52,6 +52,8 @@ def test_plot_training_history_svg_writes_svg(tmp_path: Path) -> None:
     assert "Training History" in svg
     assert "loss 0.4000" in svg
     assert "accuracy 0.8000" in svg
+    assert 'stroke="#e5e7eb"' in svg
+    assert 'font-size="11"' in svg
 
 
 def test_plot_training_history_svg_rejects_missing_metric_keys(tmp_path: Path) -> None:
@@ -89,6 +91,7 @@ def test_plot_metric_history_svg_writes_single_metric_svg(tmp_path: Path) -> Non
     assert svg.startswith("<svg")
     assert "Train Loss" in svg
     assert "train loss 0.4000" in svg
+    assert 'stroke="#e5e7eb"' in svg
 
 
 def test_plot_metric_history_svg_writes_train_vs_val_svg(tmp_path: Path) -> None:

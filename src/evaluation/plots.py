@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 
 
@@ -49,7 +50,25 @@ def load_training_history(metrics_path: str | Path) -> list[dict]:
     return history
 
 
-def _scale_values(values: list[float], height: int, padding: int) -> list[float]:
+def _value_bounds(values: list[float]) -> tuple[float, float]:
+    """Return readable bounds that include all values."""
+    min_value = min(values)
+    max_value = max(values)
+
+    if math.isclose(min_value, max_value):
+        margin = max(abs(min_value) * 0.1, 0.05)
+        return min_value - margin, max_value + margin
+
+    margin = (max_value - min_value) * 0.08
+    return min_value - margin, max_value + margin
+
+
+def _scale_values(
+    values: list[float],
+    height: int,
+    padding: int,
+    bounds: tuple[float, float] | None = None,
+) -> list[float]:
     """Scale values to SVG y coordinates.
 
     Args:
@@ -60,12 +79,8 @@ def _scale_values(values: list[float], height: int, padding: int) -> list[float]
     Returns:
         Y coordinates where lower metric values are lower on the plot.
     """
-    min_value = min(values)
-    max_value = max(values)
+    min_value, max_value = bounds or _value_bounds(values)
     drawable_height = height - 2 * padding
-
-    if max_value == min_value:
-        return [height / 2 for _ in values]
 
     return [
         height
@@ -73,6 +88,62 @@ def _scale_values(values: list[float], height: int, padding: int) -> list[float]
         - ((value - min_value) / (max_value - min_value)) * drawable_height
         for value in values
     ]
+
+
+def _axis_ticks(min_value: float, max_value: float, count: int = 5) -> list[float]:
+    """Create evenly spaced axis tick values."""
+    return [
+        min_value + index * (max_value - min_value) / (count - 1)
+        for index in range(count)
+    ]
+
+
+def _epoch_tick_indices(epochs: list[int], max_ticks: int = 6) -> list[int]:
+    """Select representative epoch indices, including both endpoints."""
+    if len(epochs) <= max_ticks:
+        return list(range(len(epochs)))
+
+    return sorted(
+        {
+            round(index * (len(epochs) - 1) / (max_ticks - 1))
+            for index in range(max_ticks)
+        }
+    )
+
+
+def _axes_svg(
+    epochs: list[int],
+    x_values: list[float],
+    bounds: tuple[float, float],
+    width: int,
+    height: int,
+    padding: int,
+) -> str:
+    """Render grid lines and labeled ticks for a metric plot."""
+    min_value, max_value = bounds
+    y_ticks = _axis_ticks(min_value, max_value)
+    parts = []
+
+    for value in y_ticks:
+        y = _scale_values([value], height, padding, bounds)[0]
+        parts.append(
+            f'  <line x1="{padding}" y1="{y:.2f}" x2="{width - padding}" '
+            f'y2="{y:.2f}" stroke="#e5e7eb"/>\n'
+            f'  <text x="{padding - 9}" y="{y + 4:.2f}" text-anchor="end" '
+            f'font-family="sans-serif" font-size="11">{value:.3f}</text>'
+        )
+
+    for index in _epoch_tick_indices(epochs):
+        x = x_values[index]
+        parts.append(
+            f'  <line x1="{x:.2f}" y1="{padding}" x2="{x:.2f}" '
+            f'y2="{height - padding}" stroke="#f0f0f0"/>\n'
+            f'  <text x="{x:.2f}" y="{height - padding + 22}" '
+            f'text-anchor="middle" font-family="sans-serif" '
+            f'font-size="11">{epochs[index]}</text>'
+        )
+
+    return "\n".join(parts)
 
 
 def _scale_epochs(epochs: list[int], width: int, padding: int) -> list[float]:
@@ -175,7 +246,8 @@ def plot_metric_history_svg(
         for values in series_values.values()
         for value in values
     ]
-    y_values = _scale_values(all_values, height, padding)
+    bounds = _value_bounds(all_values)
+    y_values = _scale_values(all_values, height, padding, bounds)
     y_lookup = {}
     cursor = 0
 
@@ -202,14 +274,13 @@ def plot_metric_history_svg(
     svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}">
   <rect width="100%" height="100%" fill="white"/>
   <text x="{width / 2:.0f}" y="28" text-anchor="middle" font-family="sans-serif" font-size="20">{title}</text>
+{_axes_svg(epochs, x_values, bounds, width, height, padding)}
   <line x1="{padding}" y1="{height - padding}" x2="{width - padding}" y2="{height - padding}" stroke="#333"/>
   <line x1="{padding}" y1="{padding}" x2="{padding}" y2="{height - padding}" stroke="#333"/>
   <text x="{width / 2:.0f}" y="{height - 18}" text-anchor="middle" font-family="sans-serif" font-size="13">Epoch</text>
   <text x="20" y="{height / 2:.0f}" text-anchor="middle" font-family="sans-serif" font-size="13" transform="rotate(-90 20 {height / 2:.0f})">{y_label}</text>
 {''.join(series_svg)}
 {chr(10).join(legend_svg)}
-  <text x="{padding}" y="{height - padding + 22}" text-anchor="middle" font-family="sans-serif" font-size="12">{epochs[0]}</text>
-  <text x="{width - padding}" y="{height - padding + 22}" text-anchor="middle" font-family="sans-serif" font-size="12">{epochs[-1]}</text>
 </svg>
 """
 
@@ -245,26 +316,26 @@ def plot_training_history_svg(
     accuracy_values = [float(item["accuracy"]) for item in history]
     padding = 60
     x_values = _scale_epochs(epochs, width, padding)
-    loss_y_values = _scale_values(loss_values, height, padding)
-    accuracy_y_values = _scale_values(accuracy_values, height, padding)
+    bounds = _value_bounds(loss_values + accuracy_values)
+    loss_y_values = _scale_values(loss_values, height, padding, bounds)
+    accuracy_y_values = _scale_values(accuracy_values, height, padding, bounds)
     loss_points = list(zip(x_values, loss_y_values, strict=True))
     accuracy_points = list(zip(x_values, accuracy_y_values, strict=True))
 
     svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}">
   <rect width="100%" height="100%" fill="white"/>
   <text x="{width / 2:.0f}" y="28" text-anchor="middle" font-family="sans-serif" font-size="20">Training History</text>
+{_axes_svg(epochs, x_values, bounds, width, height, padding)}
   <line x1="{padding}" y1="{height - padding}" x2="{width - padding}" y2="{height - padding}" stroke="#333"/>
   <line x1="{padding}" y1="{padding}" x2="{padding}" y2="{height - padding}" stroke="#333"/>
   <text x="{width / 2:.0f}" y="{height - 18}" text-anchor="middle" font-family="sans-serif" font-size="13">Epoch</text>
-  <text x="20" y="{height / 2:.0f}" text-anchor="middle" font-family="sans-serif" font-size="13" transform="rotate(-90 20 {height / 2:.0f})">Scaled value</text>
+  <text x="20" y="{height / 2:.0f}" text-anchor="middle" font-family="sans-serif" font-size="13" transform="rotate(-90 20 {height / 2:.0f})">Value</text>
   <polyline points="{_polyline(loss_points)}" fill="none" stroke="#d62728" stroke-width="3"/>
   <polyline points="{_polyline(accuracy_points)}" fill="none" stroke="#1f77b4" stroke-width="3"/>
   <circle cx="{loss_points[-1][0]:.2f}" cy="{loss_points[-1][1]:.2f}" r="4" fill="#d62728"/>
   <circle cx="{accuracy_points[-1][0]:.2f}" cy="{accuracy_points[-1][1]:.2f}" r="4" fill="#1f77b4"/>
   <text x="{width - padding}" y="{padding - 20}" text-anchor="end" font-family="sans-serif" font-size="13" fill="#d62728">loss {loss_values[-1]:.4f}</text>
   <text x="{width - padding}" y="{padding}" text-anchor="end" font-family="sans-serif" font-size="13" fill="#1f77b4">accuracy {accuracy_values[-1]:.4f}</text>
-  <text x="{padding}" y="{height - padding + 22}" text-anchor="middle" font-family="sans-serif" font-size="12">{epochs[0]}</text>
-  <text x="{width - padding}" y="{height - padding + 22}" text-anchor="middle" font-family="sans-serif" font-size="12">{epochs[-1]}</text>
 </svg>
 """
 
