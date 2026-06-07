@@ -141,6 +141,9 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 - [OK] Écriture de `checkpoints/last.pt`
 - [OK] Écriture de `checkpoints/best.pt`
 - [OK] Validation par epoch si `val_manifest` existe
+- [OK] Reprise complète avec `--resume` depuis `last.pt`
+- [OK] Sauvegarde progressive de l'historique après chaque epoch
+- [OK] Évaluation test automatique du meilleur checkpoint en fin de training
 
 ### 11. **Évaluation audio-only** (`src/evaluation/`)
 - [OK] **metrics.py** :
@@ -169,6 +172,23 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 - [OK] Génération automatique après `main.py train`
 - [OK] Génération de `plots/<split>_confusion_matrix.svg`
 - [OK] Génération automatique après `main.py eval`
+- [OK] Axes gradués et grille sur les courbes SVG
+
+### 13. **Baseline vidéo et exécution cluster**
+- [OK] Baseline vidéo 3D CNN
+- [OK] Training et évaluation vidéo
+- [OK] Scripts Slurm audio et vidéo sans buffering stdout
+- [OK] Job d'évaluation indépendant depuis un checkpoint
+- [OK] Reprise d'un entraînement interrompu dans un nouveau job
+
+### 14. **Comparaison audio-vidéo et ensemble**
+- [OK] Commande `main.py ensemble-eval`
+- [OK] Fusion tardive par moyenne des probabilités audio et vidéo
+- [OK] Taux d'accord et nombre de désaccords
+- [OK] Export CSV détaillé par clip
+- [OK] Métriques séparées audio, vidéo et ensemble
+- [OK] Job Slurm `jobs/eval_ensemble.sbatch`
+- [EN COURS] Job ensemble `843121` en attente de ressources
 
 ---
 
@@ -177,7 +197,8 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 ### 1. **Modèles** (`src/models/`)
 - [OK] Baseline audio-only (`src/models/audio_models.py`)
 - [OK] Baseline video-only (`src/models/video_models.py`)
-- [ ] Modèle multimodal (fusion audio-vidéo)
+- [EN COURS] Fusion tardive audio-vidéo disponible pour évaluation
+- [ ] Modèle multimodal entraîné conjointement
 - [ ] Modèle inspiré FGI (fine-grained inconsistency detection)
 - [ ] Encodeurs pour audio et vidéo séparément
 
@@ -202,11 +223,13 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 - [OK] Export `predictions/*.csv`
 - [OK] Export `metrics/*.json`
 - [ ] Rapport d'évaluation complet avec courbes
+- [OK] Analyse d'accord et de désaccord entre modèles audio et vidéo
 
 ### 4. **Configuration** (`configs/`)
 - [OK] `baseline_audio.yaml` - Configuration audio-only
 - [OK] `baseline_video.yaml` - Configuration video-only
-- [ ] `multimodal.yaml` - Configuration multimodal
+- [OK] `baseline_ensemble.yaml` - Configuration de fusion tardive
+- [ ] `multimodal.yaml` - Configuration d'un modèle entraîné conjointement
 - [ ] `fgi_inspired.yaml` - Configuration FGI
 - [OK] Loader Python pour lire et valider la config audio baseline
 - [ ] Format YAML standardisé pour les futures configs
@@ -223,13 +246,16 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 - [OK] Script Slurm audio baseline
 - [OK] Script Slurm video baseline
 - [OK] Paramétrage par variables d'environnement pour smoke tests
+- [OK] Script d'évaluation d'un checkpoint
+- [OK] Script d'évaluation ensemble
+- [OK] Reprise via la variable `RESUME`
 
 ### 7. **Améliorations Futures**
 - [ ] Optimisation des hyperparamètres
 - [ ] Data augmentation pour audio et vidéo
 - [ ] Stratégies de régularisation
-- [ ] Techniques d'ensemble
-- [ ] Analyse des erreurs et visualisations
+- [OK] Première technique d'ensemble par moyenne des probabilités
+- [EN COURS] Analyse des erreurs et désaccords par clip
 - [ ] Documentation d'expériences (notebooks/)
 
 ---
@@ -258,30 +284,30 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 
 ## Métriques de Progression
 
-**Modules implémentés** : 1/5 (20%)
+**Modules implémentés** : 4/5 (80%)
 - [OK] Data preprocessing & loading (100%)
-- [EN COURS] Models (baselines audio-only et video-only implémentées)
-- [EN COURS] Training (audio-only et video-only testés)
-- [EN COURS] Evaluation (métriques + CSV/JSON audio/video)
-- [EN COURS] Configuration system (baseline audio + loader validés)
+- [EN COURS] Models (baselines unimodales terminées, modèle multimodal à faire)
+- [OK] Training (audio/vidéo, checkpoints, reprise et early stopping)
+- [OK] Evaluation (audio, vidéo, ensemble, CSV/JSON et plots)
+- [OK] Configuration system (audio, vidéo et ensemble)
 
 **Couverture** :
 - Data layer : [OK] Complet avec tests
-- Model layer : [EN COURS] Baseline audio-only testée
-- Training layer : [EN COURS] Mini-train audio-only testé
-- Eval layer : [EN COURS] Évaluation audio-only testée
+- Model layer : [EN COURS] Audio/vidéo testés, multimodal conjoint manquant
+- Training layer : [OK] Runs cluster et reprise testés
+- Eval layer : [OK] Audio, vidéo et ensemble testés
 
 ---
 
 ## Prochaines Étapes (Priorité Décroissante)
 
-1. **URGENT** : Créer la branche `feature/training-model`
-2. **IMPORTANT** : Générer les vrais manifests val/test si absents
-3. **IMPORTANT** : Brancher une reprise d'entraînement depuis checkpoint
-4. **IMPORTANT** : Évaluer `best.pt` sur val/test et analyser les prédictions
-5. **IMPORTANT** : Ajouter AUC-PR, courbes ROC/PR et index global des runs
-6. **NICE-TO-HAVE** : Ajouter logging et visualization
-7. **NICE-TO-HAVE** : Optimisation hyperparamètres
+1. **URGENT** : Analyser les résultats du job ensemble `843121`
+2. **IMPORTANT** : Traiter le déséquilibre des classes
+3. **IMPORTANT** : Évaluer les meilleurs checkpoints sur tout le test
+4. **IMPORTANT** : Reprendre ou relancer le training vidéo au-delà de l'epoch 7
+5. **IMPORTANT** : Ajouter F1 macro, AUC-PR et courbes ROC/PR
+6. **IMPORTANT** : Implémenter un modèle multimodal entraîné conjointement
+7. **NICE-TO-HAVE** : Ajouter TensorBoard ou un index global des runs
 
 ---
 
@@ -303,5 +329,5 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 
 ---
 
-**Dernière mise à jour** : Juin 2, 2026  
-**Statut** : Phase de prétraitement terminée [OK] | Phase modélisation en attente [EN COURS]
+**Dernière mise à jour** : 7 juin 2026
+**Statut** : Baselines audio/vidéo exécutées [OK] | Analyse ensemble et correction du déséquilibre [EN COURS]

@@ -1,0 +1,14 @@
+experiment:
+  name: baseline_ensemble
+  version: 1
+  seed: 42
+  runs_root: runs
+  output_dir: runs/baseline_ensemble
+
+audio_config: configs/baseline_audio.yaml
+video_config: configs/baseline_video.yaml
+
+evaluation:
+  batch_size: 4
+  split: test
+  fusion: mean_probability

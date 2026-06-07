@@ -2,10 +2,17 @@ import json
 from argparse import Namespace
 from pathlib import Path
 
+import torch
 import yaml
 
-from main import evaluate_audio_baseline, train_audio_baseline
+from main import (
+    evaluate_audio_baseline,
+    evaluate_audio_video_baseline,
+    train_audio_baseline,
+)
 from main import evaluate_video_baseline, train_video_baseline
+from src.models.audio_models import build_audio_model
+from src.models.video_models import build_video_model
 from tests.data.helpers import create_clip
 
 
@@ -344,3 +351,80 @@ def test_video_baseline_trains_and_evaluates_checkpoint(tmp_path: Path) -> None:
     assert (eval_run_dir / "metrics" / "test_metrics.json").is_file()
     assert (eval_run_dir / "predictions" / "test_predictions.csv").is_file()
     assert (eval_run_dir / "plots" / "test_confusion_matrix.svg").is_file()
+
+
+def test_audio_video_ensemble_writes_comparison_outputs(tmp_path: Path) -> None:
+    real_clip = tmp_path / "clips" / "real" / "000000"
+    fake_clip = tmp_path / "clips" / "fake" / "000000"
+    create_clip(real_clip)
+    create_clip(fake_clip)
+    manifest_path = tmp_path / "ensemble_manifest.csv"
+    manifest_path.write_text(
+        "\n".join(
+            [
+                "clip_path,label,video_id,clip_id",
+                f"{real_clip},real,video_real,000000",
+                f"{fake_clip},fake,video_fake,000000",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    audio_config_path = write_train_config(tmp_path, manifest_path)
+    video_config_path = write_video_config(tmp_path, manifest_path)
+    audio_config = yaml.safe_load(audio_config_path.read_text(encoding="utf-8"))
+    video_config = yaml.safe_load(video_config_path.read_text(encoding="utf-8"))
+    audio_checkpoint = tmp_path / "audio.pt"
+    video_checkpoint = tmp_path / "video.pt"
+    torch.save(
+        {"model_state_dict": build_audio_model(audio_config["model"]).state_dict()},
+        audio_checkpoint,
+    )
+    torch.save(
+        {"model_state_dict": build_video_model(video_config["model"]).state_dict()},
+        video_checkpoint,
+    )
+    ensemble_config_path = tmp_path / "ensemble_config.yaml"
+    ensemble_config_path.write_text(
+        yaml.safe_dump(
+            {
+                "experiment": {
+                    "name": "baseline_ensemble",
+                    "runs_root": str(tmp_path / "runs"),
+                    "output_dir": str(tmp_path / "runs" / "baseline_ensemble"),
+                    "seed": 42,
+                },
+                "audio_config": str(audio_config_path),
+                "video_config": str(video_config_path),
+                "evaluation": {
+                    "batch_size": 1,
+                    "fusion": "mean_probability",
+                    "split": "test",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    evaluate_audio_video_baseline(
+        Namespace(
+            config=ensemble_config_path,
+            audio_checkpoint=audio_checkpoint,
+            video_checkpoint=video_checkpoint,
+            split="test",
+            max_batches=1,
+            batch_size=1,
+            run_id="ensemble-test-run",
+            runs_root=tmp_path / "runs",
+            device="cpu",
+        )
+    )
+
+    run_dir = tmp_path / "runs" / "baseline-ensemble" / "ensemble-test-run"
+    assert (run_dir / "metrics" / "test_ensemble_metrics.json").is_file()
+    assert (run_dir / "metrics" / "test_model_comparison.json").is_file()
+    assert (
+        run_dir / "predictions" / "test_ensemble_comparison.csv"
+    ).is_file()
+    assert (
+        run_dir / "plots" / "test_ensemble_confusion_matrix.svg"
+    ).is_file()

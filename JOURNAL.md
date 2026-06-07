@@ -591,3 +591,66 @@ Le projet dispose maintenant de deux baselines unimodales :
 
 Avant de passer à une approche FGI-inspired plus fine, il faut créer une baseline multimodale simple.  
 Elle servira de référence pour mesurer si la fusion audio-vidéo apporte déjà un gain par rapport aux modèles séparés.
+
+---
+
+## 7 juin 2026 - Premiers runs cluster et fiabilisation du workflow
+
+### Réalisations
+- Analyse des runs Slurm audio `842002` et vidéo `842003`.
+- Run audio terminé par early stopping à l'epoch 12 :
+  - meilleur checkpoint à l'epoch 5,
+  - `val_loss = 0.5584`,
+  - `val_accuracy = 0.75`.
+- Run vidéo interrompu par la limite Slurm de 6 heures à l'epoch 7 :
+  - meilleur checkpoint à l'epoch 5,
+  - `val_loss = 0.5331`,
+  - `val_accuracy = 0.75`.
+- Identification d'un biais de classe important :
+  - train : 2260 fake / 540 real,
+  - validation : 540 fake / 180 real,
+  - test : 430 fake / 50 real.
+- Ajout de graduations et d'une grille aux plots SVG.
+- Sauvegarde de `train_metrics.json` après chaque epoch.
+- Passage des scripts Slurm à `python3 -u` pour obtenir les logs sans buffering.
+- Ajout de l'évaluation automatique du meilleur checkpoint sur le test en fin
+  d'entraînement.
+- Ajout de `jobs/eval_baseline.sbatch` pour évaluer un checkpoint indépendamment
+  du job d'entraînement.
+- Ajout de la reprise d'entraînement avec `main.py train --resume` :
+  - restauration des poids,
+  - restauration de l'optimizer,
+  - reprise à l'epoch suivante,
+  - conservation de l'historique et du meilleur checkpoint.
+- Ajout de `jobs/eval_ensemble.sbatch` et de `main.py ensemble-eval`.
+- Ajout d'une fusion tardive audio-vidéo par moyenne de `prob_fake`.
+- Export du taux d'accord, des désaccords par clip et des métriques séparées
+  audio, vidéo et ensemble.
+- Exclusion de `jobs/logs/` du suivi Git.
+
+### Logique
+Le job vidéo a montré qu'un workflow cluster ne doit pas supposer que la boucle
+d'entraînement atteindra toujours sa fin. Les métriques, checkpoints et logs
+doivent rester exploitables après une interruption Slurm.
+
+Les accuracies observées correspondent presque exactement à la proportion de
+la classe `fake`. Elles ne suffisent donc pas à démontrer que les modèles
+discriminent réellement les deux classes. La comparaison audio-vidéo doit
+mesurer les désaccords et examiner les métriques par classe, pas seulement
+l'accuracy.
+
+### Résultat
+- Les entraînements peuvent être repris depuis `last.pt` dans un nouveau job.
+- Les checkpoints peuvent être évalués dans un job séparé même si le training
+  a été interrompu.
+- Un job d'évaluation ensemble, `843121`, a été soumis sur la partition 3090.
+  Au moment de cette mise à jour, il est en attente de ressources.
+- La suite contient 97 tests passants.
+
+### Limites observées
+- La patience d'early stopping des anciens checkpoints n'est pas restaurée et
+  repart à zéro lors d'une reprise.
+- Le déséquilibre des classes doit encore être traité avant de comparer
+  sérieusement les performances.
+- L'ensemble actuel est une fusion tardive de probabilités, pas encore un modèle
+  multimodal entraîné conjointement.
