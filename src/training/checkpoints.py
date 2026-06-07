@@ -13,6 +13,7 @@ from torch.optim import Optimizer
 __all__ = [
     "checkpoint_metric_is_better",
     "load_model_checkpoint",
+    "load_training_checkpoint",
     "save_training_checkpoint",
 ]
 
@@ -100,4 +101,21 @@ def load_model_checkpoint(model: nn.Module, checkpoint_path: str | Path) -> dict
     checkpoint = torch.load(checkpoint_path, map_location="cpu")
     state_dict = checkpoint.get("model_state_dict", checkpoint)
     model.load_state_dict(state_dict)
+    return checkpoint
+
+
+def load_training_checkpoint(
+    model: nn.Module,
+    optimizer: Optimizer,
+    checkpoint_path: str | Path,
+) -> dict[str, Any]:
+    """Restore model and optimizer state for continued training."""
+    checkpoint = load_model_checkpoint(model, checkpoint_path)
+
+    if "optimizer_state_dict" not in checkpoint:
+        raise ValueError(
+            f"Checkpoint does not contain optimizer state: {checkpoint_path}"
+        )
+
+    optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
     return checkpoint

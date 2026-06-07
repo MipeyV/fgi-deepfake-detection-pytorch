@@ -1,3 +1,4 @@
+import json
 from argparse import Namespace
 from pathlib import Path
 
@@ -68,6 +69,7 @@ def write_train_config(tmp_path: Path, manifest_path: Path) -> Path:
             "metric_for_best_checkpoint": "val_loss",
         },
         "evaluation": {
+            "auto_after_training": True,
             "batch_size": 2,
             "metrics": ["accuracy", "f1"],
         },
@@ -133,6 +135,7 @@ def write_video_config(tmp_path: Path, manifest_path: Path) -> Path:
             "metric_for_best_checkpoint": "val_loss",
         },
         "evaluation": {
+            "auto_after_training": True,
             "batch_size": 2,
             "metrics": ["accuracy", "f1"],
         },
@@ -195,6 +198,9 @@ def test_train_audio_baseline_writes_run_metrics(tmp_path: Path) -> None:
     assert (run_dir / "plots" / "train_accuracy.svg").is_file()
     assert (run_dir / "plots" / "loss_train_vs_val.svg").is_file()
     assert (run_dir / "plots" / "accuracy_train_vs_val.svg").is_file()
+    assert (run_dir / "metrics" / "test_metrics.json").is_file()
+    assert (run_dir / "predictions" / "test_predictions.csv").is_file()
+    assert (run_dir / "plots" / "test_confusion_matrix.svg").is_file()
 
     evaluate_audio_baseline(
         Namespace(
@@ -213,6 +219,29 @@ def test_train_audio_baseline_writes_run_metrics(tmp_path: Path) -> None:
 
     assert (eval_run_dir / "metrics" / "test_metrics.json").is_file()
     assert (eval_run_dir / "predictions" / "test_predictions.csv").is_file()
+
+    train_audio_baseline(
+        Namespace(
+            config=config_path,
+            epochs=2,
+            max_batches=1,
+            batch_size=1,
+            run_id="resumed-run",
+            runs_root=tmp_path / "runs",
+            device="cpu",
+            resume=run_dir / "checkpoints" / "last.pt",
+        )
+    )
+
+    resumed_run_dir = tmp_path / "runs" / "baseline-audio" / "resumed-run"
+    resumed_history = json.loads(
+        (resumed_run_dir / "metrics" / "train_metrics.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert [row["epoch"] for row in resumed_history] == [1, 2]
+    assert (resumed_run_dir / "checkpoints" / "best.pt").is_file()
 
 
 def test_evaluate_audio_baseline_writes_predictions_and_metrics(tmp_path: Path) -> None:
@@ -293,6 +322,9 @@ def test_video_baseline_trains_and_evaluates_checkpoint(tmp_path: Path) -> None:
     assert (run_dir / "checkpoints" / "best.pt").is_file()
     assert (run_dir / "plots" / "loss_train_vs_val.svg").is_file()
     assert (run_dir / "plots" / "accuracy_train_vs_val.svg").is_file()
+    assert (run_dir / "metrics" / "test_metrics.json").is_file()
+    assert (run_dir / "predictions" / "test_predictions.csv").is_file()
+    assert (run_dir / "plots" / "test_confusion_matrix.svg").is_file()
 
     evaluate_video_baseline(
         Namespace(

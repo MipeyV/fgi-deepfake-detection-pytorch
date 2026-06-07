@@ -72,6 +72,7 @@ validation:
   metric_for_best_checkpoint: val_loss
 
 evaluation:
+  auto_after_training: true
   batch_size: 32
   metrics:
     - accuracy

@@ -15,6 +15,8 @@ CONFIG="${CONFIG:-configs/baseline_audio.yaml}"
 EPOCHS="${EPOCHS:-30}"
 BATCH_SIZE="${BATCH_SIZE:-32}"
 DEVICE="${DEVICE:-cuda}"
+RUN_ID="${RUN_ID:-}"
+RESUME="${RESUME:-}"
 
 cd "$PROJECT_DIR"
 mkdir -p jobs/logs
@@ -24,7 +26,7 @@ if [[ -n "${VENV_PATH:-}" ]]; then
 fi
 
 COMMAND=(
-  python3 main.py train
+  python3 -u main.py train
   --config "$CONFIG"
   --epochs "$EPOCHS"
   --batch-size "$BATCH_SIZE"
@@ -33,6 +35,14 @@ COMMAND=(
 
 if [[ -n "${MAX_BATCHES:-}" ]]; then
   COMMAND+=(--max-batches "$MAX_BATCHES")
+fi
+
+if [[ -n "$RUN_ID" ]]; then
+  COMMAND+=(--run-id "$RUN_ID")
+fi
+
+if [[ -n "$RESUME" ]]; then
+  COMMAND+=(--resume "$RESUME")
 fi
 
 printf 'Running command:'

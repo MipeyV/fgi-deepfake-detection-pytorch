@@ -1,5 +1,6 @@
 import argparse
 import json
+import shutil
 from dataclasses import asdict
 from pathlib import Path
 
@@ -30,6 +31,7 @@ from src.runs import create_run_context
 from src.training.checkpoints import (
     checkpoint_metric_is_better,
     load_model_checkpoint,
+    load_training_checkpoint,
     save_training_checkpoint,
 )
 from src.training.early_stopping import build_early_stopping_state
@@ -71,6 +73,12 @@ def parse_args() -> argparse.Namespace:
     train_parser.add_argument("--run-id", type=str, default=None)
     train_parser.add_argument("--runs-root", type=Path, default=None)
     train_parser.add_argument("--device", type=str, default=None)
+    train_parser.add_argument(
+        "--resume",
+        type=Path,
+        default=None,
+        help="Continue training from a checkpoint; --epochs remains the total target.",
+    )
 
     eval_parser = subparsers.add_parser(
         "eval",
@@ -160,6 +168,65 @@ def _print_training_outputs(run_dir: Path, metrics_path: Path, plots_dir: Path) 
         print(f"Accuracy train vs val plot: {accuracy_train_vs_val_plot_path}")
 
 
+def _write_test_evaluation(
+    result,
+    run_context,
+) -> None:
+    """Write test metrics, predictions, and confusion matrix into a training run."""
+    predictions_path = run_context.predictions_dir / "test_predictions.csv"
+    metrics_path = run_context.metrics_dir / "test_metrics.json"
+    confusion_matrix_path = run_context.plots_dir / "test_confusion_matrix.svg"
+    write_evaluation_outputs(result, predictions_path, metrics_path)
+    plot_confusion_matrix_svg(metrics_path, confusion_matrix_path)
+    print(
+        "test "
+        f"accuracy={result.metrics.accuracy:.4f} "
+        f"f1={result.metrics.f1:.4f} "
+        f"samples={result.metrics.num_samples}"
+    )
+    print(f"Test metrics: {metrics_path}")
+    print(f"Test predictions: {predictions_path}")
+    print(f"Test confusion matrix: {confusion_matrix_path}")
+
+
+def _restore_training_state(
+    model,
+    optimizer,
+    resume_path: Path | None,
+    run_context,
+) -> tuple[int, list[dict], str | None, float | None]:
+    """Restore a checkpoint and any available metric history."""
+    if resume_path is None:
+        return 0, [], None, None
+
+    checkpoint = load_training_checkpoint(model, optimizer, resume_path)
+    start_epoch = int(checkpoint.get("epoch", 0))
+    history_path = resume_path.parent.parent / "metrics" / "train_metrics.json"
+
+    if history_path.is_file():
+        history = json.loads(history_path.read_text(encoding="utf-8"))
+        history = [
+            row for row in history if int(row.get("epoch", 0)) <= start_epoch
+        ]
+    else:
+        metrics = checkpoint.get("metrics")
+        history = [metrics] if isinstance(metrics, dict) else []
+
+    source_best_path = resume_path.parent / "best.pt"
+    if not source_best_path.is_file() and resume_path.name == "best.pt":
+        source_best_path = resume_path
+    if source_best_path.is_file():
+        shutil.copy2(source_best_path, run_context.checkpoints_dir / "best.pt")
+
+    print(f"Resuming training from epoch {start_epoch}: {resume_path}")
+    return (
+        start_epoch,
+        history,
+        checkpoint.get("best_metric_name"),
+        checkpoint.get("best_metric_value"),
+    )
+
+
 def train_audio_baseline(args: argparse.Namespace) -> None:
     """Train the baseline audio model from command-line arguments.
 
@@ -213,18 +280,23 @@ def train_audio_baseline(args: argparse.Namespace) -> None:
     optimizer = build_optimizer(model, training_config["optimizer"])
     criterion = torch.nn.CrossEntropyLoss()
 
-    history = []
+    resume_path = getattr(args, "resume", None)
+    start_epoch, history, resumed_metric_name, best_metric_value = (
+        _restore_training_state(model, optimizer, resume_path, run_context)
+    )
+    metrics_path = run_context.metrics_dir / "train_metrics.json"
+    if history:
+        write_json(metrics_path, history)
     checkpointing_config = config["checkpointing"]
     save_last = checkpointing_config.get("save_last", True)
     save_best = checkpointing_config.get("save_best", True)
-    best_metric_name = config["validation"].get(
+    best_metric_name = resumed_metric_name or config["validation"].get(
         "metric_for_best_checkpoint",
         "val_loss" if val_loader is not None else "loss",
     )
-    best_metric_value = None
     early_stopping = build_early_stopping_state(training_config, best_metric_name)
 
-    for epoch in range(1, epochs + 1):
+    for epoch in range(start_epoch + 1, epochs + 1):
         metrics = train_one_epoch(
             model=model,
             feature_extractor=feature_extractor,
@@ -255,6 +327,7 @@ def train_audio_baseline(args: argparse.Namespace) -> None:
             )
 
         history.append(epoch_metrics)
+        write_json(metrics_path, history)
 
         print(
             "epoch "
@@ -312,10 +385,33 @@ def train_audio_baseline(args: argparse.Namespace) -> None:
         if should_stop:
             break
 
-    metrics_path = run_context.metrics_dir / "train_metrics.json"
+    if not history:
+        raise ValueError(
+            f"No epochs to train: checkpoint epoch {start_epoch}, target {epochs}"
+        )
     write_json(metrics_path, history)
     _write_training_plots(metrics_path, run_context.plots_dir)
     _print_training_outputs(run_context.run_dir, metrics_path, run_context.plots_dir)
+
+    if config["evaluation"].get("auto_after_training", False):
+        test_loader = create_dataloader(
+            manifest_path=config["data"]["test_manifest"],
+            batch_size=config["evaluation"]["batch_size"],
+            shuffle=False,
+            num_workers=training_config["num_workers"],
+            include_frames=False,
+        )
+        checkpoint_path = run_context.checkpoints_dir / "best.pt"
+        if checkpoint_path.is_file():
+            load_model_checkpoint(model, checkpoint_path)
+        result = evaluate_audio_classifier(
+            model=model,
+            feature_extractor=feature_extractor,
+            dataloader=test_loader,
+            device=device,
+            max_batches=args.max_batches,
+        )
+        _write_test_evaluation(result, run_context)
 
 
 def train_video_baseline(args: argparse.Namespace) -> None:
@@ -361,18 +457,23 @@ def train_video_baseline(args: argparse.Namespace) -> None:
     optimizer = build_optimizer(model, training_config["optimizer"])
     criterion = torch.nn.CrossEntropyLoss()
 
-    history = []
+    resume_path = getattr(args, "resume", None)
+    start_epoch, history, resumed_metric_name, best_metric_value = (
+        _restore_training_state(model, optimizer, resume_path, run_context)
+    )
+    metrics_path = run_context.metrics_dir / "train_metrics.json"
+    if history:
+        write_json(metrics_path, history)
     checkpointing_config = config["checkpointing"]
     save_last = checkpointing_config.get("save_last", True)
     save_best = checkpointing_config.get("save_best", True)
-    best_metric_name = config["validation"].get(
+    best_metric_name = resumed_metric_name or config["validation"].get(
         "metric_for_best_checkpoint",
         "val_loss" if val_loader is not None else "loss",
     )
-    best_metric_value = None
     early_stopping = build_early_stopping_state(training_config, best_metric_name)
 
-    for epoch in range(1, epochs + 1):
+    for epoch in range(start_epoch + 1, epochs + 1):
         metrics = train_video_one_epoch(
             model=model,
             dataloader=train_loader,
@@ -401,6 +502,7 @@ def train_video_baseline(args: argparse.Namespace) -> None:
             )
 
         history.append(epoch_metrics)
+        write_json(metrics_path, history)
 
         print(
             "epoch "
@@ -458,10 +560,33 @@ def train_video_baseline(args: argparse.Namespace) -> None:
         if should_stop:
             break
 
-    metrics_path = run_context.metrics_dir / "train_metrics.json"
+    if not history:
+        raise ValueError(
+            f"No epochs to train: checkpoint epoch {start_epoch}, target {epochs}"
+        )
     write_json(metrics_path, history)
     _write_training_plots(metrics_path, run_context.plots_dir)
     _print_training_outputs(run_context.run_dir, metrics_path, run_context.plots_dir)
+
+    if config["evaluation"].get("auto_after_training", False):
+        test_loader = create_dataloader(
+            manifest_path=config["data"]["test_manifest"],
+            batch_size=config["evaluation"]["batch_size"],
+            shuffle=False,
+            num_workers=training_config["num_workers"],
+            frame_transform=frame_transform,
+            include_frames=True,
+        )
+        checkpoint_path = run_context.checkpoints_dir / "best.pt"
+        if checkpoint_path.is_file():
+            load_model_checkpoint(model, checkpoint_path)
+        result = evaluate_video_classifier(
+            model=model,
+            dataloader=test_loader,
+            device=device,
+            max_batches=args.max_batches,
+        )
+        _write_test_evaluation(result, run_context)
 
 
 def evaluate_audio_baseline(args: argparse.Namespace) -> None:

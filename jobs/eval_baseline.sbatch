@@ -1,22 +1,22 @@
 #!/usr/bin/env bash
-#SBATCH --job-name=fgi-video
+#SBATCH --job-name=fgi-eval
 #SBATCH --partition=3090
 #SBATCH --output=jobs/logs/%x-%j.out
 #SBATCH --error=jobs/logs/%x-%j.err
-#SBATCH --time=06:00:00
+#SBATCH --time=02:00:00
 #SBATCH --cpus-per-task=4
-#SBATCH --mem=32G
+#SBATCH --mem=16G
 #SBATCH --gres=gpu:1
 
 set -euo pipefail
 
 PROJECT_DIR="${PROJECT_DIR:-$SLURM_SUBMIT_DIR}"
-CONFIG="${CONFIG:-configs/baseline_video.yaml}"
-EPOCHS="${EPOCHS:-20}"
-BATCH_SIZE="${BATCH_SIZE:-4}"
+CONFIG="${CONFIG:?Set CONFIG to the experiment config path}"
+CHECKPOINT="${CHECKPOINT:?Set CHECKPOINT to the checkpoint path}"
+SPLIT="${SPLIT:-test}"
+BATCH_SIZE="${BATCH_SIZE:-}"
 DEVICE="${DEVICE:-cuda}"
 RUN_ID="${RUN_ID:-}"
-RESUME="${RESUME:-}"
 
 cd "$PROJECT_DIR"
 mkdir -p jobs/logs
@@ -26,23 +26,23 @@ if [[ -n "${VENV_PATH:-}" ]]; then
 fi
 
 COMMAND=(
-  python3 -u main.py train
+  python3 -u main.py eval
   --config "$CONFIG"
-  --epochs "$EPOCHS"
-  --batch-size "$BATCH_SIZE"
+  --checkpoint "$CHECKPOINT"
+  --split "$SPLIT"
   --device "$DEVICE"
 )
 
-if [[ -n "${MAX_BATCHES:-}" ]]; then
-  COMMAND+=(--max-batches "$MAX_BATCHES")
+if [[ -n "$BATCH_SIZE" ]]; then
+  COMMAND+=(--batch-size "$BATCH_SIZE")
 fi
 
 if [[ -n "$RUN_ID" ]]; then
   COMMAND+=(--run-id "$RUN_ID")
 fi
 
-if [[ -n "$RESUME" ]]; then
-  COMMAND+=(--resume "$RESUME")
+if [[ -n "${MAX_BATCHES:-}" ]]; then
+  COMMAND+=(--max-batches "$MAX_BATCHES")
 fi
 
 printf 'Running command:'
