@@ -92,18 +92,57 @@ pip install -r requirements.txt
 
 ## Usage
 
-Run an experiment using a configuration file:
+Train an audio or video baseline:
 
 ```bash
-python main.py --config configs/baseline.yaml
+python3 main.py train --config configs/baseline_audio.yaml
+python3 main.py train --config configs/baseline_video.yaml
+```
+
+Evaluate a checkpoint:
+
+```bash
+python3 main.py eval \
+  --config configs/baseline_audio.yaml \
+  --checkpoint runs/baseline-audio/<run-id>/checkpoints/best.pt \
+  --split test
+```
+
+Resume an interrupted training run. `--epochs` is the final target epoch:
+
+```bash
+python3 main.py train \
+  --config configs/baseline_video.yaml \
+  --resume runs/baseline-video/<run-id>/checkpoints/last.pt \
+  --epochs 20
+```
+
+Compare audio and video checkpoints and evaluate their probability ensemble:
+
+```bash
+python3 main.py ensemble-eval \
+  --config configs/baseline_ensemble.yaml \
+  --audio-checkpoint runs/baseline-audio/<run-id>/checkpoints/best.pt \
+  --video-checkpoint runs/baseline-video/<run-id>/checkpoints/best.pt
+```
+
+Slurm entry points are available in `jobs/`:
+
+```bash
+sbatch jobs/train_audio_baseline.sbatch
+sbatch jobs/train_video_baseline.sbatch
+sbatch jobs/eval_baseline.sbatch
+sbatch jobs/eval_ensemble.sbatch
 ```
 
 ## Experiments
 
-All experiment outputs are stored in the `experiments/` directory:
+Experiment outputs are stored in `runs/<experiment>/<run-id>/`:
 
-- training logs
-- saved models (.pth)
-- evaluation metrics
+- copied configuration and Git metadata
+- checkpoints (`best.pt`, `last.pt`)
+- training and evaluation metrics
+- per-clip predictions
+- SVG plots and confusion matrices
 
 Each run is organized in a separate folder for reproducibility.

@@ -17,7 +17,9 @@ from src.data.dataset import build_frame_resize_transform
 from src.data.preprocessing_pipeline import preprocess_dataset, write_manifest
 from src.evaluation.evaluator import (
     evaluate_audio_classifier,
+    evaluate_audio_video_ensemble,
     evaluate_video_classifier,
+    write_ensemble_evaluation_outputs,
     write_evaluation_outputs,
 )
 from src.evaluation.plots import (
@@ -92,6 +94,24 @@ def parse_args() -> argparse.Namespace:
     eval_parser.add_argument("--run-id", type=str, default=None)
     eval_parser.add_argument("--runs-root", type=Path, default=None)
     eval_parser.add_argument("--device", type=str, default=None)
+
+    ensemble_parser = subparsers.add_parser(
+        "ensemble-eval",
+        help="Compare audio and video checkpoints and evaluate their ensemble.",
+    )
+    ensemble_parser.add_argument("--config", type=Path, required=True)
+    ensemble_parser.add_argument("--audio-checkpoint", type=Path, required=True)
+    ensemble_parser.add_argument("--video-checkpoint", type=Path, required=True)
+    ensemble_parser.add_argument(
+        "--split",
+        choices=["train", "val", "test"],
+        default=None,
+    )
+    ensemble_parser.add_argument("--max-batches", type=int, default=None)
+    ensemble_parser.add_argument("--batch-size", type=int, default=None)
+    ensemble_parser.add_argument("--run-id", type=str, default=None)
+    ensemble_parser.add_argument("--runs-root", type=Path, default=None)
+    ensemble_parser.add_argument("--device", type=str, default=None)
 
     return parser.parse_args()
 
@@ -719,6 +739,94 @@ def evaluate_video_baseline(args: argparse.Namespace) -> None:
     print(f"Confusion matrix: {confusion_matrix_path}")
 
 
+def evaluate_audio_video_baseline(args: argparse.Namespace) -> None:
+    """Compare audio/video predictions and evaluate mean-probability fusion."""
+    ensemble_config = load_config(args.config)
+    audio_config = load_config(ensemble_config["audio_config"])
+    video_config = load_config(ensemble_config["video_config"])
+    validate_audio_baseline_config(audio_config)
+    validate_video_baseline_config(video_config)
+
+    split = args.split or ensemble_config["evaluation"].get("split", "test")
+    data_key = f"{split}_manifest"
+    audio_manifest = Path(audio_config["data"][data_key])
+    video_manifest = Path(video_config["data"][data_key])
+    if audio_manifest.resolve() != video_manifest.resolve():
+        raise ValueError(
+            "Audio and video ensemble configs must use the same split manifest"
+        )
+
+    run_context = create_run_context(
+        config=ensemble_config,
+        config_path=args.config,
+        runs_root=args.runs_root,
+        run_id=args.run_id,
+    )
+    device_name = args.device or audio_config["training"]["device"]
+    device = resolve_device(device_name)
+    batch_size = (
+        args.batch_size
+        or ensemble_config["evaluation"]["batch_size"]
+    )
+    frame_transform = build_frame_resize_transform(
+        video_config["video"]["frame_size"]
+    )
+    dataloader = create_dataloader(
+        manifest_path=audio_manifest,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=video_config["training"]["num_workers"],
+        frame_transform=frame_transform,
+        include_frames=True,
+    )
+    feature_extractor = build_audio_feature_extractor(
+        features_config=audio_config["features"],
+        sample_rate=audio_config["audio"]["sample_rate"],
+    )
+    audio_model = build_audio_model(audio_config["model"])
+    video_model = build_video_model(video_config["model"])
+    load_model_checkpoint(audio_model, args.audio_checkpoint)
+    load_model_checkpoint(video_model, args.video_checkpoint)
+
+    result = evaluate_audio_video_ensemble(
+        audio_model=audio_model,
+        video_model=video_model,
+        feature_extractor=feature_extractor,
+        dataloader=dataloader,
+        device=device,
+        max_batches=args.max_batches,
+    )
+    predictions_path = (
+        run_context.predictions_dir / f"{split}_ensemble_comparison.csv"
+    )
+    metrics_path = run_context.metrics_dir / f"{split}_ensemble_metrics.json"
+    comparison_path = run_context.metrics_dir / f"{split}_model_comparison.json"
+    confusion_matrix_path = (
+        run_context.plots_dir / f"{split}_ensemble_confusion_matrix.svg"
+    )
+    write_ensemble_evaluation_outputs(
+        result,
+        predictions_path,
+        metrics_path,
+        comparison_path,
+    )
+    plot_confusion_matrix_svg(metrics_path, confusion_matrix_path)
+
+    print(
+        f"{split} agreement={result.agreement_rate:.4f} "
+        f"disagreements={result.disagreement_count}/{len(result.predictions)}"
+    )
+    print(
+        f"audio accuracy={result.audio_metrics.accuracy:.4f} "
+        f"video accuracy={result.video_metrics.accuracy:.4f} "
+        f"ensemble accuracy={result.ensemble_metrics.accuracy:.4f}"
+    )
+    print(f"Run directory: {run_context.run_dir}")
+    print(f"Comparison metrics: {comparison_path}")
+    print(f"Predictions: {predictions_path}")
+    print(f"Ensemble confusion matrix: {confusion_matrix_path}")
+
+
 def main() -> None:
     args = parse_args()
 
@@ -759,6 +867,9 @@ def main() -> None:
             evaluate_video_baseline(args)
         else:
             raise ValueError(f"Unsupported model for evaluation: {model_name}")
+
+    if args.command == "ensemble-eval":
+        evaluate_audio_video_baseline(args)
 
 
 if __name__ == "__main__":
