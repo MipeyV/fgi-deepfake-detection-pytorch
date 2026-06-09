@@ -146,3 +146,10 @@ Experiment outputs are stored in `runs/<experiment>/<run-id>/`:
 - SVG plots and confusion matrices
 
 Each run is organized in a separate folder for reproducibility.
+
+## Dataset analysis
+
+The static dataset audit is available in
+`notebooks/dataset_static_analysis.ipynb`. It reports class and split balance,
+video-level distributions, clips per video, leakage and duplicate checks,
+training class weights, and an optional clip file inventory.
