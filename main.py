@@ -37,6 +37,7 @@ from src.training.checkpoints import (
     save_training_checkpoint,
 )
 from src.training.early_stopping import build_early_stopping_state
+from src.training.losses import build_classification_criterion
 from src.training.trainer import (
     build_optimizer,
     evaluate_audio_model,
@@ -298,7 +299,14 @@ def train_audio_baseline(args: argparse.Namespace) -> None:
     )
     model = build_audio_model(config["model"])
     optimizer = build_optimizer(model, training_config["optimizer"])
-    criterion = torch.nn.CrossEntropyLoss()
+    criterion = build_classification_criterion(
+        loss_config=training_config["loss"],
+        train_manifest_path=config["data"]["train_manifest"],
+        label_mapping=config["data"]["label_mapping"],
+        device=device,
+    )
+    if criterion.weight is not None:
+        print(f"Class weights: {criterion.weight.detach().cpu().tolist()}")
 
     resume_path = getattr(args, "resume", None)
     start_epoch, history, resumed_metric_name, best_metric_value = (
@@ -475,7 +483,14 @@ def train_video_baseline(args: argparse.Namespace) -> None:
 
     model = build_video_model(config["model"])
     optimizer = build_optimizer(model, training_config["optimizer"])
-    criterion = torch.nn.CrossEntropyLoss()
+    criterion = build_classification_criterion(
+        loss_config=training_config["loss"],
+        train_manifest_path=config["data"]["train_manifest"],
+        label_mapping=config["data"]["label_mapping"],
+        device=device,
+    )
+    if criterion.weight is not None:
+        print(f"Class weights: {criterion.weight.detach().cpu().tolist()}")
 
     resume_path = getattr(args, "resume", None)
     start_epoch, history, resumed_metric_name, best_metric_value = (

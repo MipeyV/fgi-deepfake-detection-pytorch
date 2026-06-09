@@ -132,6 +132,25 @@ def _require_positive_number(value: int | float, key_path: str) -> None:
         raise ValueError(f"Config value must be greater than 0: {key_path}")
 
 
+def _validate_loss_config(loss_config: Config, num_classes: int) -> None:
+    """Validate the supported cross-entropy and class-weight settings."""
+    if loss_config.get("name") != "cross_entropy":
+        raise ValueError(f"Unsupported loss: {loss_config.get('name')}")
+
+    class_weights = loss_config.get("class_weights")
+    if class_weights in (None, "none", "balanced"):
+        return
+
+    if not isinstance(class_weights, list) or len(class_weights) != num_classes:
+        raise ValueError(
+            "training.loss.class_weights must be 'balanced', 'none', "
+            "or contain one weight per class"
+        )
+
+    for weight in class_weights:
+        _require_positive_number(weight, "training.loss.class_weights")
+
+
 def validate_audio_baseline_config(config: Config) -> None:
     """Validate the baseline audio experiment configuration.
 
@@ -203,6 +222,7 @@ def validate_audio_baseline_config(config: Config) -> None:
     _require_positive_number(config["training"]["batch_size"], "training.batch_size")
     _require_positive_number(config["validation"]["batch_size"], "validation.batch_size")
     _require_positive_number(config["evaluation"]["batch_size"], "evaluation.batch_size")
+    _validate_loss_config(config["training"]["loss"], config["model"]["num_classes"])
 
     if not config["model"]["conv_channels"]:
         raise ValueError("model.conv_channels must contain at least one value")
@@ -254,6 +274,7 @@ def validate_video_baseline_config(config: Config) -> None:
     _require_positive_number(config["training"]["batch_size"], "training.batch_size")
     _require_positive_number(config["validation"]["batch_size"], "validation.batch_size")
     _require_positive_number(config["evaluation"]["batch_size"], "evaluation.batch_size")
+    _validate_loss_config(config["training"]["loss"], config["model"]["num_classes"])
 
     if not config["model"]["conv_channels"]:
         raise ValueError("model.conv_channels must contain at least one value")

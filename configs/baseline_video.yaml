@@ -41,6 +41,7 @@ training:
     weight_decay: 0.00001
   loss:
     name: cross_entropy
+    class_weights: balanced
   early_stopping:
     enabled: true
     patience: 5
