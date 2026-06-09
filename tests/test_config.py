@@ -73,3 +73,11 @@ def test_validate_video_baseline_config_rejects_unknown_model() -> None:
 
     with pytest.raises(ValueError, match="Unsupported video model"):
         validate_video_baseline_config(config)
+
+
+def test_validate_audio_baseline_config_rejects_invalid_class_weights() -> None:
+    config = load_config("configs/baseline_audio.yaml")
+    config["training"]["loss"]["class_weights"] = [1.0]
+
+    with pytest.raises(ValueError, match="one weight per class"):
+        validate_audio_baseline_config(config)
