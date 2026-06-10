@@ -13,8 +13,8 @@ from src.config import (
 )
 from src.data.audio_feature import build_audio_feature_extractor
 from src.data.dataloader import create_dataloader
-from src.data.dataset import build_frame_resize_transform
 from src.data.preprocessing_pipeline import preprocess_dataset, write_manifest
+from src.data.video import build_video_input_pipeline
 from src.evaluation.evaluator import (
     evaluate_audio_classifier,
     evaluate_audio_video_ensemble,
@@ -28,7 +28,7 @@ from src.evaluation.plots import (
     plot_training_history_svg,
 )
 from src.models.audio_models import build_audio_model
-from src.models.video_models import build_video_model
+from src.models.video import build_video_model
 from src.runs import create_run_context
 from src.training.checkpoints import (
     checkpoint_metric_is_better,
@@ -67,7 +67,7 @@ def parse_args() -> argparse.Namespace:
 
     train_parser = subparsers.add_parser(
         "train",
-        help="Train an audio-only baseline from a YAML config.",
+        help="Train a supported model from a YAML config.",
     )
     train_parser.add_argument("--config", type=Path, required=True)
     train_parser.add_argument("--epochs", type=int, default=None)
@@ -85,7 +85,7 @@ def parse_args() -> argparse.Namespace:
 
     eval_parser = subparsers.add_parser(
         "eval",
-        help="Evaluate an audio-only baseline from a YAML config.",
+        help="Evaluate a supported model from a YAML config.",
     )
     eval_parser.add_argument("--config", type=Path, required=True)
     eval_parser.add_argument("--split", choices=["train", "val", "test"], default="test")
@@ -459,26 +459,22 @@ def train_video_baseline(args: argparse.Namespace) -> None:
     epochs = args.epochs or training_config["epochs"]
     batch_size = args.batch_size or training_config["batch_size"]
     device = resolve_device(device_name)
-    frame_transform = build_frame_resize_transform(config["video"]["frame_size"])
+    input_pipeline = build_video_input_pipeline(config["video"])
 
-    train_loader = create_dataloader(
+    train_loader = input_pipeline.create_dataloader(
         manifest_path=config["data"]["train_manifest"],
         batch_size=batch_size,
         shuffle=True,
         num_workers=training_config["num_workers"],
-        frame_transform=frame_transform,
-        include_frames=True,
     )
     val_manifest_path = Path(config["data"]["val_manifest"])
     val_loader = None
     if val_manifest_path.is_file():
-        val_loader = create_dataloader(
+        val_loader = input_pipeline.create_dataloader(
             manifest_path=val_manifest_path,
             batch_size=config["validation"]["batch_size"],
             shuffle=False,
             num_workers=training_config["num_workers"],
-            frame_transform=frame_transform,
-            include_frames=True,
         )
 
     model = build_video_model(config["model"])
@@ -604,13 +600,11 @@ def train_video_baseline(args: argparse.Namespace) -> None:
     _print_training_outputs(run_context.run_dir, metrics_path, run_context.plots_dir)
 
     if config["evaluation"].get("auto_after_training", False):
-        test_loader = create_dataloader(
+        test_loader = input_pipeline.create_dataloader(
             manifest_path=config["data"]["test_manifest"],
             batch_size=config["evaluation"]["batch_size"],
             shuffle=False,
             num_workers=training_config["num_workers"],
-            frame_transform=frame_transform,
-            include_frames=True,
         )
         checkpoint_path = run_context.checkpoints_dir / "best.pt"
         if checkpoint_path.is_file():
@@ -712,15 +706,13 @@ def evaluate_video_baseline(args: argparse.Namespace) -> None:
     device_name = args.device or config["training"]["device"]
     batch_size = args.batch_size or config["evaluation"]["batch_size"]
     device = resolve_device(device_name)
-    frame_transform = build_frame_resize_transform(config["video"]["frame_size"])
+    input_pipeline = build_video_input_pipeline(config["video"])
 
-    dataloader = create_dataloader(
+    dataloader = input_pipeline.create_dataloader(
         manifest_path=manifest_path,
         batch_size=batch_size,
         shuffle=False,
         num_workers=config["training"]["num_workers"],
-        frame_transform=frame_transform,
-        include_frames=True,
     )
     model = build_video_model(config["model"])
 
@@ -783,16 +775,12 @@ def evaluate_audio_video_baseline(args: argparse.Namespace) -> None:
         args.batch_size
         or ensemble_config["evaluation"]["batch_size"]
     )
-    frame_transform = build_frame_resize_transform(
-        video_config["video"]["frame_size"]
-    )
-    dataloader = create_dataloader(
+    input_pipeline = build_video_input_pipeline(video_config["video"])
+    dataloader = input_pipeline.create_dataloader(
         manifest_path=audio_manifest,
         batch_size=batch_size,
         shuffle=False,
         num_workers=video_config["training"]["num_workers"],
-        frame_transform=frame_transform,
-        include_frames=True,
     )
     feature_extractor = build_audio_feature_extractor(
         features_config=audio_config["features"],
@@ -868,7 +856,7 @@ def main() -> None:
         model_name = _model_name_from_config(config)
         if model_name == "audio_cnn_baseline":
             train_audio_baseline(args)
-        elif model_name == "video_cnn_baseline":
+        elif model_name in {"video_cnn_baseline", "r3d18"}:
             train_video_baseline(args)
         else:
             raise ValueError(f"Unsupported model for training: {model_name}")
@@ -878,7 +866,7 @@ def main() -> None:
         model_name = _model_name_from_config(config)
         if model_name == "audio_cnn_baseline":
             evaluate_audio_baseline(args)
-        elif model_name == "video_cnn_baseline":
+        elif model_name in {"video_cnn_baseline", "r3d18"}:
             evaluate_video_baseline(args)
         else:
             raise ValueError(f"Unsupported model for evaluation: {model_name}")

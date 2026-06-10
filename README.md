@@ -99,6 +99,19 @@ python3 main.py train --config configs/baseline_audio.yaml
 python3 main.py train --config configs/baseline_video.yaml
 ```
 
+Train the R3D-18 video model initialized from Kinetics-400 weights:
+
+```bash
+python3 main.py train --config configs/r3d18_video.yaml
+```
+
+Submit the same experiment to Slurm:
+
+```bash
+sbatch --export=ALL,CONFIG=configs/r3d18_video.yaml \
+  jobs/train_video_baseline.sbatch
+```
+
 Evaluate a checkpoint:
 
 ```bash
@@ -146,6 +159,36 @@ Experiment outputs are stored in `runs/<experiment>/<run-id>/`:
 - SVG plots and confusion matrices
 
 Each run is organized in a separate folder for reproducibility.
+
+## Extensible video pipeline
+
+Video experiments separate input processing from model architecture:
+
+- `src/data/video/` builds the configured preprocessing and dataloaders.
+- `src/models/video/` builds the configured classifier.
+- training and evaluation consume the shared batch contract without knowing
+  which implementation produced it.
+
+Current video input pipelines return `frames` with shape
+`[batch, frames, channels, height, width]`. Video classifiers return logits
+with shape `[batch, classes]`.
+
+The two components are selected independently in YAML:
+
+```yaml
+video:
+  preprocessing:
+    name: resize_center_crop
+    resize_size: [128, 171]
+    crop_size: 112
+
+model:
+  name: r3d18
+```
+
+A future FGI input pipeline can therefore add synchronized crops, temporal
+sampling, landmarks, or other features without changing the R3D-18 module.
+Likewise, another classifier can reuse an existing input pipeline.
 
 ## Dataset analysis
 

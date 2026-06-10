@@ -2,7 +2,7 @@ import pytest
 import torch
 from torch import nn
 
-from src.models.video_models import VideoCNNBaseline
+from src.models.video import VideoCNNBaseline
 from src.training.trainer import (
     build_optimizer,
     evaluate_video_model,

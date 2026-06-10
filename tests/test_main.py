@@ -12,7 +12,7 @@ from main import (
 )
 from main import evaluate_video_baseline, train_video_baseline
 from src.models.audio_models import build_audio_model
-from src.models.video_models import build_video_model
+from src.models.video import build_video_model
 from tests.data.helpers import create_clip
 
 
@@ -114,7 +114,10 @@ def write_video_config(tmp_path: Path, manifest_path: Path) -> Path:
             "label_mapping": {"real": 0, "fake": 1},
         },
         "video": {
-            "frame_size": 8,
+            "preprocessing": {
+                "name": "resize_square",
+                "frame_size": 8,
+            },
         },
         "model": {
             "name": "video_cnn_baseline",

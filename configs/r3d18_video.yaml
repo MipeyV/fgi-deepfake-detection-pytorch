@@ -1,14 +1,11 @@
-# Baseline video-only experiment.
-#
-# This config mirrors the audio baseline run structure while using only frame
-# tensors from the preprocessed clips.
+# R3D-18 video-only experiment initialized from Kinetics-400 weights.
 
 experiment:
-  name: baseline_video
+  name: r3d18_video
   version: 1
   seed: 42
   runs_root: runs
-  output_dir: runs/baseline_video
+  output_dir: runs/r3d18_video
 
 data:
   manifest_dir: data/manifests
@@ -21,15 +18,15 @@ data:
 
 video:
   preprocessing:
-    name: resize_square
-    frame_size: 64
+    name: resize_center_crop
+    resize_size: [128, 171]
+    crop_size: 112
 
 model:
-  name: video_cnn_baseline
-  input_channels: 3
+  name: r3d18
   num_classes: 2
-  conv_channels: [16, 32, 64]
-  dense_channels: [128]
+  weights: kinetics400_v1
+  normalize: true
   dropout: 0.3
 
 training:

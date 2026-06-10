@@ -43,6 +43,12 @@ def test_validate_video_baseline_config_accepts_project_config() -> None:
     validate_video_baseline_config(config)
 
 
+def test_validate_video_baseline_config_accepts_r3d18_config() -> None:
+    config = load_config("configs/r3d18_video.yaml")
+
+    validate_video_baseline_config(config)
+
+
 def test_validate_audio_baseline_config_rejects_missing_section() -> None:
     config = load_config("configs/baseline_audio.yaml")
     config.pop("model")
@@ -72,6 +78,14 @@ def test_validate_video_baseline_config_rejects_unknown_model() -> None:
     config["model"]["name"] = "unknown"
 
     with pytest.raises(ValueError, match="Unsupported video model"):
+        validate_video_baseline_config(config)
+
+
+def test_validate_video_baseline_config_rejects_unknown_preprocessing() -> None:
+    config = load_config("configs/baseline_video.yaml")
+    config["video"]["preprocessing"]["name"] = "unknown"
+
+    with pytest.raises(ValueError, match="Unsupported video preprocessing"):
         validate_video_baseline_config(config)
 
 
