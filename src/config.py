@@ -7,6 +7,9 @@ from typing import Any
 
 import yaml
 
+from src.data.video import validate_video_preprocessing_config
+from src.models.video import validate_video_model_config
+
 
 Config = dict[str, Any]
 
@@ -241,12 +244,8 @@ def validate_video_baseline_config(config: Config) -> None:
         "data",
         {"train_manifest", "val_manifest", "test_manifest", "label_mapping"},
     )
-    _require_keys(config["video"], "video", {"frame_size"})
-    _require_keys(
-        config["model"],
-        "model",
-        {"name", "input_channels", "num_classes", "conv_channels", "dropout"},
-    )
+    _require_keys(config["video"], "video", {"preprocessing"})
+    _require_keys(config["model"], "model", {"name"})
     _require_keys(
         config["training"],
         "training",
@@ -257,9 +256,6 @@ def validate_video_baseline_config(config: Config) -> None:
     _require_keys(config["checkpointing"], "checkpointing", {"save_dir"})
     _require_keys(config["logging"], "logging", {"log_dir", "level"})
 
-    if config["model"]["name"] != "video_cnn_baseline":
-        raise ValueError(f"Unsupported video model: {config['model']['name']}")
-
     expected_label_mapping = {"real": 0, "fake": 1}
     if config["data"]["label_mapping"] != expected_label_mapping:
         raise ValueError(
@@ -267,17 +263,13 @@ def validate_video_baseline_config(config: Config) -> None:
             "for the baseline video task"
         )
 
-    _require_positive_number(config["model"]["input_channels"], "model.input_channels")
-    _require_positive_number(config["model"]["num_classes"], "model.num_classes")
-    _require_positive_number(config["video"]["frame_size"], "video.frame_size")
+    validate_video_model_config(config["model"])
+    validate_video_preprocessing_config(config["video"]["preprocessing"])
     _require_positive_number(config["training"]["epochs"], "training.epochs")
     _require_positive_number(config["training"]["batch_size"], "training.batch_size")
     _require_positive_number(config["validation"]["batch_size"], "validation.batch_size")
     _require_positive_number(config["evaluation"]["batch_size"], "evaluation.batch_size")
     _validate_loss_config(config["training"]["loss"], config["model"]["num_classes"])
-
-    if not config["model"]["conv_channels"]:
-        raise ValueError("model.conv_channels must contain at least one value")
 
     if not config["evaluation"]["metrics"]:
         raise ValueError("evaluation.metrics must contain at least one metric")

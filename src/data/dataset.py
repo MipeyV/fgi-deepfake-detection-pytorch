@@ -14,18 +14,6 @@ def pil_to_tensor(image: Image.Image) -> torch.Tensor:
     return torch.from_numpy(image_array).permute(2, 0, 1).float().div(255)
 
 
-def build_frame_resize_transform(frame_size: int):
-    """Build a frame transform that resizes PIL images before tensor conversion."""
-    if frame_size <= 0:
-        raise ValueError("frame_size must be greater than 0")
-
-    def transform(image: Image.Image) -> torch.Tensor:
-        resized = image.resize((frame_size, frame_size), Image.BILINEAR)
-        return pil_to_tensor(resized)
-
-    return transform
-
-
 class DeepFakeClipDataset(Dataset):
     def __init__(
         self,

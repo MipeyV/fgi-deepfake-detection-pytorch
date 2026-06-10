@@ -710,3 +710,97 @@ L'audit statique confirme le déséquilibre :
 - La suite contient 101 tests passants après l'ajout des class weights.
 - Le prochain point de comparaison sera l'AUC et la matrice de confusion des
   nouveaux checkpoints, en particulier le nombre de vrais négatifs retrouvés.
+
+---
+
+## 10 juin 2026 - Passage à R3D-18 et modularisation du pipeline vidéo
+
+### Analyse du training pondéré
+- Analyse du job Slurm vidéo `845027`.
+- Confirmation de l'utilisation des poids de classes :
+  - `real = 2.593`,
+  - `fake = 0.619`.
+- Résultats sur le test :
+  - `accuracy = 0.8104`,
+  - `AUC = 0.6164`,
+  - `F1 = 0.8926`,
+  - 11 vrais négatifs,
+  - 39 faux positifs,
+  - 52 faux négatifs,
+  - 378 vrais positifs.
+- Le modèle reconnaît désormais 11 exemples `real` sur 50, contre aucun avant
+  la pondération.
+- L'AUC reste cependant proche de la baseline précédente (`0.6225`) et baisse
+  légèrement malgré la correction partielle du seuil de décision.
+
+### Réalisations
+- Ajout d'un classifieur vidéo R3D-18 basé sur Torchvision.
+- Support optionnel des poids préentraînés `KINETICS400_V1`.
+- Remplacement de la tête Kinetics-400 par une tête de classification binaire.
+- Ajout de la normalisation attendue par les poids Kinetics-400.
+- Ajout du preprocessing spatial recommandé :
+  - redimensionnement en `128 x 171`,
+  - crop central en `112 x 112`.
+- Ajout de `configs/r3d18_video.yaml`.
+- Support du training, de l'évaluation et de l'ensemble avec le modèle R3D-18.
+- Conservation du modèle CNN vidéo historique pour permettre les comparaisons.
+
+### Modularisation
+- Séparation des architectures vidéo dans `src/models/video/` :
+  - `baseline.py`,
+  - `r3d18.py`,
+  - `factory.py`,
+  - validation de configuration dédiée.
+- Conservation de `src/models/video_models.py` comme façade compatible avec les
+  anciens imports.
+- Création de `src/data/video/` pour isoler les pipelines d'entrée :
+  - resize carré pour la baseline,
+  - resize puis crop central pour R3D-18,
+  - factory et validation indépendantes des modèles.
+- Modification des configs afin de sélectionner séparément :
+  - `video.preprocessing.name`,
+  - `model.name`.
+- Branchement du training, de l'évaluation et de la fusion tardive sur le même
+  pipeline d'entrée configurable.
+
+### Contrats retenus
+Les composants vidéo respectent actuellement les interfaces suivantes :
+- pipeline d'entrée :
+  `frames = [batch, frames, channels, height, width]`,
+- modèle :
+  `logits = [batch, classes]`.
+
+Le trainer et l'évaluateur ne connaissent donc plus l'architecture du modèle
+ni les détails du resize et du crop. Un modèle peut réutiliser plusieurs
+pipelines d'entrée, et un pipeline peut être comparé avec plusieurs modèles.
+
+### Logique
+Les class weights ont montré que le déséquilibre n'était pas l'unique limite :
+ils permettent de récupérer quelques exemples `real`, mais n'améliorent pas
+l'AUC. La baseline 3D CNN semble donc manquer de capacité ou de représentations
+temporelles suffisamment robustes.
+
+R3D-18 sert de nouvelle baseline vidéo préentraînée avant la construction d'un
+modèle multimodal ou FGI-inspired. La modularisation évite cependant de lier le
+projet à R3D-18 : une future approche FGI pourra introduire son propre
+échantillonnage temporel, des régions faciales, des landmarks ou des entrées
+audio-visuelles synchronisées sans modifier les modèles existants.
+
+### Résultat
+- La suite contient 109 tests passants.
+- Les baselines vidéo et R3D-18 utilisent le même workflow de training et
+  d'évaluation.
+- Le lancement cluster prévu est :
+
+```bash
+sbatch --export=ALL,CONFIG=configs/r3d18_video.yaml \
+  jobs/train_video_baseline.sbatch
+```
+
+### Limites observées
+- Les poids R3D-18 représentent environ 127 Mo et ne sont pas encore présents
+  dans le cache Torch local.
+- Le premier lancement doit donc disposer d'un accès réseau ou d'un cache
+  préalimenté sur le cluster.
+- Le pipeline reste unimodal : la synchronisation et les interactions
+  audio-vidéo propres à FGI ne sont pas encore implémentées.
