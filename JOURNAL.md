@@ -654,3 +654,59 @@ l'accuracy.
   sérieusement les performances.
 - L'ensemble actuel est une fusion tardive de probabilités, pas encore un modèle
   multimodal entraîné conjointement.
+
+---
+
+## 9 juin 2026 - Traitement du déséquilibre des classes
+
+### Réalisations
+- Analyse de l'évaluation croisée audio, vidéo et ensemble sur le test :
+  - audio : `AUC = 0.5846`,
+  - vidéo : `AUC = 0.6225`,
+  - ensemble : `AUC = 0.6331`.
+- Identification d'une prédiction systématique de la classe `fake` :
+  - 430 vrais positifs,
+  - 50 faux positifs,
+  - aucun échantillon prédit `real`.
+- Ajout de class weights à la cross-entropy pour les trainings audio et vidéo.
+- Calcul automatique des poids à partir du manifest train uniquement :
+  - `real = 2.593`,
+  - `fake = 0.619`.
+- Support de poids manuels dans la configuration.
+- Validation des poids configurés et détection des classes absentes.
+- Activation de `class_weights: balanced` dans les deux configs baseline.
+- Ajout de tests unitaires pour le calcul et la construction de la loss.
+- Ajout de `notebooks/dataset_static_analysis.ipynb` pour analyser :
+  - l'équilibre des classes par split,
+  - les distributions au niveau clip et vidéo,
+  - le nombre de clips par vidéo,
+  - les doublons et les fuites entre splits,
+  - les chemins de clips manquants,
+  - les poids de classes utilisés pour le training.
+- Ajout d'`ipykernel` aux dépendances pour exécuter le notebook dans VS Code.
+- Relance d'un training vidéo pondéré sur le cluster avec le job Slurm `845027`.
+
+### Logique
+L'accuracy de `89.58 %` correspondait exactement à la proportion de `fake`
+dans le test. Elle était donc trompeuse : un modèle prédisant toujours `fake`
+obtenait cette accuracy sans reconnaître aucun exemple `real`.
+
+L'AUC supérieure à `0.5` montre qu'un faible signal de classement existe, mais
+la frontière de décision est fortement biaisée par la distribution des
+classes. La cross-entropy pondérée donne davantage d'importance aux erreurs sur
+la classe minoritaire `real`, sans utiliser les données de validation ou de
+test pour calculer les poids.
+
+L'audit statique confirme le déséquilibre :
+- train : 540 real / 2260 fake,
+- validation : 180 real / 540 fake,
+- test : 50 real / 430 fake.
+
+### Résultat
+- Les trainings audio et vidéo utilisent désormais automatiquement des poids
+  équilibrés.
+- L'audit ne détecte aucun doublon, aucune fuite de vidéo entre splits, aucun
+  label invalide et aucun chemin de clip manquant.
+- La suite contient 101 tests passants après l'ajout des class weights.
+- Le prochain point de comparaison sera l'AUC et la matrice de confusion des
+  nouveaux checkpoints, en particulier le nombre de vrais négatifs retrouvés.
