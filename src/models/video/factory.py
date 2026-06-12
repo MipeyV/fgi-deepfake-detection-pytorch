@@ -7,7 +7,21 @@ from src.models.video.r3d18 import R3D18VideoClassifier
 
 
 def build_video_model(model_config: dict) -> nn.Module:
-    """Build a video classifier returning ``[batch_size, num_classes]`` logits."""
+    """Build a configured video classifier.
+
+    Args:
+        model_config: Experiment ``model`` mapping containing the architecture
+            name and its constructor parameters.
+
+    Returns:
+        A classifier accepting clips shaped
+        ``[batch, frames, channels, height, width]`` and returning logits
+        shaped ``[batch, classes]``.
+
+    Raises:
+        ValueError: If ``model.name`` is unsupported or a constructor rejects
+            one of its values.
+    """
     model_name = model_config.get("name", "video_cnn_baseline")
 
     if model_name == "video_cnn_baseline":

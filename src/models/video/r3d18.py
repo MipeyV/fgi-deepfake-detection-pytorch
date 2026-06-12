@@ -12,7 +12,7 @@ R3D18_KINETICS_STD = (0.22803, 0.22145, 0.216989)
 
 
 class R3D18VideoClassifier(nn.Module):
-    """R3D-18 classifier following the shared video model input contract."""
+    """Torchvision R3D-18 adapted to the shared video classifier contract."""
 
     def __init__(
         self,
@@ -21,6 +21,18 @@ class R3D18VideoClassifier(nn.Module):
         dropout: float = 0.3,
         normalize: bool = True,
     ) -> None:
+        """Initialize an R3D-18 backbone and replace its classification head.
+
+        Args:
+            num_classes: Number of output classification logits.
+            weights: ``none`` or ``kinetics400_v1``.
+            dropout: Dropout probability before the final linear layer.
+            normalize: Whether to apply Kinetics-400 channel normalization.
+
+        Raises:
+            ValueError: If a parameter is invalid or the weight name is
+                unsupported.
+        """
         super().__init__()
 
         validate_positive_int(num_classes, "num_classes")
@@ -61,6 +73,18 @@ class R3D18VideoClassifier(nn.Module):
         )
 
     def forward(self, inputs: torch.Tensor) -> torch.Tensor:
+        """Classify clips shaped ``[batch, frames, channels, height, width]``.
+
+        Args:
+            inputs: RGB frame sequences with values normally in ``[0, 1]``.
+
+        Returns:
+            Unnormalized class logits shaped ``[batch, num_classes]``.
+
+        Raises:
+            ValueError: If the input is not five-dimensional or does not
+                contain three RGB channels.
+        """
         if inputs.ndim != 5:
             raise ValueError(
                 "R3D18VideoClassifier expects inputs with shape "

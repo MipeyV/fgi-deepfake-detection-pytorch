@@ -14,9 +14,18 @@ from src.models.video._validation import (
 
 
 class VideoConvBlock(nn.Module):
-    """3D convolution block for video frame sequences."""
+    """Spatial 3D convolution block that preserves the temporal resolution."""
 
     def __init__(self, in_channels: int, out_channels: int) -> None:
+        """Initialize one convolution, normalization, activation, and pool block.
+
+        Args:
+            in_channels: Number of input feature channels.
+            out_channels: Number of output feature channels.
+
+        Raises:
+            ValueError: If either channel count is not positive.
+        """
         super().__init__()
 
         validate_positive_int(in_channels, "in_channels")
@@ -30,11 +39,12 @@ class VideoConvBlock(nn.Module):
         )
 
     def forward(self, inputs: torch.Tensor) -> torch.Tensor:
+        """Apply the convolution block to ``[batch, channels, time, height, width]``."""
         return self.layers(inputs)
 
 
 class VideoCNNBaseline(nn.Module):
-    """Simple 3D CNN classifier for video clips."""
+    """Configurable 3D CNN baseline classifier for fixed-size video clips."""
 
     def __init__(
         self,
@@ -44,6 +54,20 @@ class VideoCNNBaseline(nn.Module):
         dense_channels: Sequence[int] = (128,),
         dropout: float = 0.3,
     ) -> None:
+        """Initialize the convolutional feature extractor and dense classifier.
+
+        Args:
+            input_channels: Number of channels in each input frame.
+            num_classes: Number of output classification logits.
+            conv_channels: Output sizes of successive 3D convolution blocks.
+            dense_channels: Hidden sizes in the dense classification head.
+            dropout: Dropout probability between dense layers.
+
+        Raises:
+            ValueError: If channel or class sizes are invalid, if no
+                convolution size is provided, or if dropout is outside
+                ``[0, 1]``.
+        """
         super().__init__()
 
         validate_positive_int(input_channels, "input_channels")
@@ -87,6 +111,17 @@ class VideoCNNBaseline(nn.Module):
         self.classifier = nn.Sequential(*classifier_layers)
 
     def forward(self, inputs: torch.Tensor) -> torch.Tensor:
+        """Classify clips shaped ``[batch, frames, channels, height, width]``.
+
+        Args:
+            inputs: Batch of frame sequences.
+
+        Returns:
+            Unnormalized class logits shaped ``[batch, num_classes]``.
+
+        Raises:
+            ValueError: If ``inputs`` is not a five-dimensional tensor.
+        """
         if inputs.ndim != 5:
             raise ValueError(
                 "VideoCNNBaseline expects inputs with shape "

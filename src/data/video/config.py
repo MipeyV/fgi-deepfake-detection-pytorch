@@ -2,6 +2,15 @@
 
 
 def _require_keys(config: dict, required_keys: set[str]) -> None:
+    """Require keys in a video preprocessing configuration mapping.
+
+    Args:
+        config: Mapping to inspect.
+        required_keys: Keys that must be present.
+
+    Raises:
+        ValueError: If at least one required key is missing.
+    """
     missing_keys = required_keys - set(config)
     if missing_keys:
         raise ValueError(
@@ -11,12 +20,32 @@ def _require_keys(config: dict, required_keys: set[str]) -> None:
 
 
 def _require_positive(value: int | float, key_path: str) -> None:
+    """Require a positive numeric configuration value.
+
+    Args:
+        value: Candidate numeric value.
+        key_path: Configuration path included in validation errors.
+
+    Raises:
+        ValueError: If ``value`` is not numeric or is not greater than zero.
+    """
     if not isinstance(value, int | float) or value <= 0:
         raise ValueError(f"Config value must be greater than 0: {key_path}")
 
 
 def validate_video_preprocessing_config(preprocessing_config: dict) -> None:
-    """Validate one supported video preprocessing strategy."""
+    """Validate one supported video preprocessing strategy.
+
+    Supported names are ``resize_square``, ``resize_center_crop``, and
+    ``resize_normalize``.
+
+    Args:
+        preprocessing_config: ``video.preprocessing`` configuration mapping.
+
+    Raises:
+        ValueError: If required values are missing, malformed, non-positive,
+            or the preprocessing name is unsupported.
+    """
     _require_keys(preprocessing_config, {"name"})
     preprocessing_name = preprocessing_config["name"]
 
