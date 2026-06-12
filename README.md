@@ -214,6 +214,45 @@ experiment, not yet the multimodal FGI model. The next FGI stages are separate
 audio and visual encoders, local audio-visual distances, spatial attention, and
 temporally local pseudo-fake augmentation.
 
+## FGI face crops
+
+FGI experiments use a separate offline cache of stable face crops. The source
+clips and audio remain unchanged under `data/processed/`; cropped frames and
+copied synchronized audio are written under `data/processed_fgi/`.
+
+Download the official YuNet model from
+[`opencv/opencv_zoo`](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet):
+
+```bash
+mkdir -p models
+curl -L \
+  https://github.com/opencv/opencv_zoo/raw/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx \
+  -o models/face_detection_yunet_2023mar.onnx
+```
+
+Process each split independently so its existing split metadata is preserved:
+
+```bash
+python3 main.py fgi-face-crops \
+  --manifest data/manifests/train_manifest.csv \
+  --output-dir data/processed_fgi \
+  --output-manifest data/manifests_fgi/train_manifest.csv \
+  --detector-model models/face_detection_yunet_2023mar.onnx \
+  --missing-face-policy skip \
+  --contact-sheet runs/fgi-face-crops/train_contact_sheet.png
+```
+
+Repeat with `val_manifest.csv` and `test_manifest.csv`. The command associates
+face detections over time using IoU, selects the longest consistent track,
+aggregates it into one stable square crop for the whole clip, adds a
+configurable margin, resizes to `256x256`, copies `audio.wav`, and rewrites
+`clip_path` in the new manifest. Each contact-sheet cell shows the beginning,
+middle, and end of a clip.
+
+Always inspect the contact sheet and skipped-clip count before training. The
+optional `--detector haar` backend requires no model file, but it is less
+reliable and should only be used for explicit development checks.
+
 ## Dataset analysis
 
 The static dataset audit is available in

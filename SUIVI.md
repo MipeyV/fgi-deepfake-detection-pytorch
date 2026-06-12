@@ -59,6 +59,19 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
   - normalisation FGI configurable vers `[-1, 1]`
   - sélection indépendante du modèle via YAML
 
+- [OK] **Préprocessing facial FGI hors ligne** :
+  - détecteur YuNet via OpenCV et modèle ONNX explicite
+  - fallback Haar disponible pour le développement
+  - association temporelle des visages par IoU
+  - sélection de la piste faciale la plus longue
+  - boîte carrée stabilisée sur toutes les frames du clip
+  - marge et taille de sortie configurables
+  - copie de l'audio synchronisé
+  - conservation des colonnes de split dans les manifests FGI
+  - seuil minimal de frames avec visage détecté
+  - politique `error` ou `skip` pour les clips sans visage fiable
+  - planche contact PNG début/milieu/fin pour contrôle qualité
+
 - [OK] **split_manifest.py** :
   - Hash-based split des données (train/val/test = 7:2:1)
   - Validation de manifests
@@ -249,6 +262,7 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 - [OK] Chargement de configs YAML pour training audio-only
 - [OK] Pipeline audio-only train/eval minimal
 - [OK] Pipeline video-only train/eval minimal
+- [OK] Commande `fgi-face-crops`
 - [ ] Logging et rapports avancés
 
 ### 6. **Jobs cluster** (`jobs/`)
@@ -310,13 +324,13 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 
 ## Prochaines Étapes (Priorité Décroissante)
 
-1. **URGENT** : Étendre le dataset pour fournir conjointement audio et vidéo au modèle
-2. **IMPORTANT** : Implémenter les encodeurs audio et vidéo FGI
-3. **IMPORTANT** : Ajouter les distances locales audio-visuelles et l'attention spatiale
-4. **IMPORTANT** : Ajouter les pseudo-fakes temporels au train uniquement
-5. **IMPORTANT** : Ajouter balanced accuracy, F1 macro, AUC-PR et courbes ROC/PR
-6. **IMPORTANT** : Comparer FGI aux baselines sur les mêmes splits
-7. **NICE-TO-HAVE** : Ajouter TensorBoard ou un index global des runs
+1. **URGENT** : Générer et contrôler les crops YuNet train/val/test
+2. **IMPORTANT** : Étendre le dataset pour fournir conjointement audio et vidéo au modèle
+3. **IMPORTANT** : Implémenter les encodeurs audio et vidéo FGI
+4. **IMPORTANT** : Ajouter les distances locales audio-visuelles et l'attention spatiale
+5. **IMPORTANT** : Ajouter les pseudo-fakes temporels au train uniquement
+6. **IMPORTANT** : Ajouter balanced accuracy, F1 macro, AUC-PR et courbes ROC/PR
+7. **IMPORTANT** : Comparer FGI aux baselines sur les mêmes splits
 
 ---
 
