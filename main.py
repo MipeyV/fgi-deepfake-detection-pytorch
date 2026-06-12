@@ -13,6 +13,12 @@ from src.config import (
 )
 from src.data.audio_feature import build_audio_feature_extractor
 from src.data.dataloader import create_dataloader
+from src.data.fgi_face_crops import (
+    OpenCVHaarFaceDetector,
+    OpenCVYuNetFaceDetector,
+    create_fgi_face_crop_dataset,
+    write_face_crop_contact_sheet,
+)
 from src.data.preprocessing_pipeline import preprocess_dataset, write_manifest
 from src.data.video import build_video_input_pipeline
 from src.evaluation.evaluator import (
@@ -64,6 +70,42 @@ def parse_args() -> argparse.Namespace:
     preprocess_parser.add_argument("--fps", type=int, default=30)
     preprocess_parser.add_argument("--clip-size", type=int, default=30)
     preprocess_parser.add_argument("--sample-rate", type=int, default=48000)
+
+    face_crops_parser = subparsers.add_parser(
+        "fgi-face-crops",
+        help="Create stable face crops from an existing clip manifest.",
+    )
+    face_crops_parser.add_argument("--manifest", type=Path, required=True)
+    face_crops_parser.add_argument("--output-dir", type=Path, required=True)
+    face_crops_parser.add_argument(
+        "--output-manifest",
+        type=Path,
+        required=True,
+    )
+    face_crops_parser.add_argument("--output-size", type=int, default=256)
+    face_crops_parser.add_argument("--margin", type=float, default=0.3)
+    face_crops_parser.add_argument(
+        "--detector",
+        choices=["yunet", "haar"],
+        default="yunet",
+    )
+    face_crops_parser.add_argument("--detector-model", type=Path, default=None)
+    face_crops_parser.add_argument(
+        "--score-threshold",
+        type=float,
+        default=0.9,
+    )
+    face_crops_parser.add_argument(
+        "--min-detection-fraction",
+        type=float,
+        default=0.5,
+    )
+    face_crops_parser.add_argument(
+        "--missing-face-policy",
+        choices=["error", "skip"],
+        default="error",
+    )
+    face_crops_parser.add_argument("--contact-sheet", type=Path, default=None)
 
     train_parser = subparsers.add_parser(
         "train",
@@ -850,6 +892,42 @@ def main() -> None:
 
         print(f"Preprocessing complete. Created {len(clip_paths)} clips.")
         print(f"Manifest written to {args.output_dir / 'manifest.csv'}")
+
+    if args.command == "fgi-face-crops":
+        if args.detector == "yunet":
+            if args.detector_model is None:
+                raise ValueError(
+                    "--detector-model is required when --detector=yunet"
+                )
+            detector = OpenCVYuNetFaceDetector(
+                model_path=args.detector_model,
+                score_threshold=args.score_threshold,
+            )
+        else:
+            detector = OpenCVHaarFaceDetector()
+
+        result = create_fgi_face_crop_dataset(
+            manifest_path=args.manifest,
+            output_dir=args.output_dir,
+            output_manifest_path=args.output_manifest,
+            detector=detector,
+            output_size=args.output_size,
+            margin=args.margin,
+            min_detection_fraction=args.min_detection_fraction,
+            missing_face_policy=args.missing_face_policy,
+        )
+        print(
+            "FGI face crops complete. "
+            f"Processed {result.processed_clips} clips; "
+            f"skipped {result.skipped_clips}."
+        )
+        print(f"Manifest written to {result.manifest_path}")
+        if args.contact_sheet is not None and result.processed_clips:
+            contact_sheet_path = write_face_crop_contact_sheet(
+                manifest_path=result.manifest_path,
+                output_path=args.contact_sheet,
+            )
+            print(f"Contact sheet written to {contact_sheet_path}")
 
     if args.command == "train":
         config = load_config(args.config)

@@ -878,3 +878,77 @@ baselines.
 - Le choix du preprocessing reste indépendant de `model.name`.
 - La suite complète contient 111 tests passants avant l'ajout de la config
   préparatoire.
+
+---
+
+## 12 juin 2026 - Crops faciaux stabilisés pour FGI
+
+### Objectif
+Construire le cache facial hors ligne nécessaire avant le modèle multimodal.
+Les clips source restent dans `data/processed/`; les nouvelles données sont
+écrites dans `data/processed_fgi/` avec des manifests séparés.
+
+### Réalisations
+- Ajout de `src/data/fgi_face_crops.py`.
+- Ajout de la commande CLI `main.py fgi-face-crops`.
+- Détection recommandée avec YuNet et un modèle ONNX explicite.
+- Conservation d'un backend Haar pour les tests de développement.
+- Pour chaque clip :
+  - détection sur chaque frame,
+  - association des détections en pistes par IoU,
+  - sélection de la piste faciale la plus longue,
+  - agrégation médiane des centres et dimensions,
+  - ajout d'une marge configurable,
+  - application d'un crop carré identique à toutes les frames,
+  - resize en `256 x 256` par défaut,
+  - copie de `audio.wav`.
+- Conservation de toutes les colonnes du manifest source, dont
+  `video_id_hashmod10` et `split`.
+- Ajout d'un seuil `min_detection_fraction` pour rejeter les clips dont trop
+  peu de frames contiennent un visage.
+- Ajout des politiques `error` et `skip`.
+- Ajout d'une planche contact PNG montrant le début, le milieu et la fin de
+  chaque clip échantillonné.
+
+### Contrôle qualité
+Un premier essai avec Haar a techniquement produit un crop, mais l'inspection
+visuelle a révélé un faux positif sur une personne tournée de dos. Ce résultat
+a motivé deux garde-fous :
+- YuNet devient le détecteur recommandé et par défaut dans la CLI ;
+- le modèle ONNX doit être fourni explicitement.
+
+Le fallback Haar n'est donc pas présenté comme un pipeline de production.
+L'absence de visage fiable doit conduire à un rejet explicite ou à un clip
+comptabilisé comme ignoré.
+
+Le même clip a ensuite été traité avec le modèle YuNet officiel. La planche
+contact début/milieu/fin montre correctement l'occultation initiale puis le
+visage suivi sur les frames suivantes. Ce smoke test valide le chemin CLI,
+l'inférence ONNX, le tracking, les crops, la copie audio et le manifest.
+
+### Commande
+
+```bash
+python3 main.py fgi-face-crops \
+  --manifest data/manifests/train_manifest.csv \
+  --output-dir data/processed_fgi \
+  --output-manifest data/manifests_fgi/train_manifest.csv \
+  --detector-model models/face_detection_yunet_2023mar.onnx \
+  --missing-face-policy skip \
+  --contact-sheet runs/fgi-face-crops/train_contact_sheet.png
+```
+
+La même commande devra être exécutée pour validation et test. Les taux de clips
+ignorés et les trois planches contact devront être vérifiés avant de modifier
+les configs d'entraînement.
+
+### Prochaine étape
+- Télécharger le modèle YuNet officiel.
+- Générer les trois caches et manifests.
+- Auditer visuellement les crops et le taux d'échec.
+- Brancher les manifests FGI dans un dataset multimodal.
+
+### Résultat
+- Suite complète : 118 tests passants.
+- Toutes les fonctions et classes du nouveau module possèdent une docstring.
+- Aucun fichier du dataset source n'est modifié.
