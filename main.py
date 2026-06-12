@@ -19,6 +19,8 @@ from src.data.fgi_face_crops import (
     create_fgi_face_crop_dataset,
     write_face_crop_contact_sheet,
 )
+from src.data.fgi import build_fgi_input_pipeline
+from src.data.fgi_multimodal import validate_fgi_multimodal_config
 from src.data.preprocessing_pipeline import preprocess_dataset, write_manifest
 from src.data.video import build_video_input_pipeline
 from src.evaluation.evaluator import (
@@ -106,6 +108,18 @@ def parse_args() -> argparse.Namespace:
         default="error",
     )
     face_crops_parser.add_argument("--contact-sheet", type=Path, default=None)
+
+    fgi_smoke_parser = subparsers.add_parser(
+        "fgi-data-smoke",
+        help="Load one strict synchronized FGI batch without a model.",
+    )
+    fgi_smoke_parser.add_argument("--config", type=Path, required=True)
+    fgi_smoke_parser.add_argument(
+        "--split",
+        choices=["train", "val", "test"],
+        default="train",
+    )
+    fgi_smoke_parser.add_argument("--batch-size", type=int, default=1)
 
     train_parser = subparsers.add_parser(
         "train",
@@ -928,6 +942,30 @@ def main() -> None:
                 output_path=args.contact_sheet,
             )
             print(f"Contact sheet written to {contact_sheet_path}")
+
+    if args.command == "fgi-data-smoke":
+        config = load_config(args.config)
+        validate_fgi_multimodal_config(config)
+        manifest_path = config["data"][f"{args.split}_manifest"]
+        pipeline = build_fgi_input_pipeline(config)
+        dataloader = pipeline.create_dataloader(
+            manifest_path=manifest_path,
+            batch_size=args.batch_size,
+            shuffle=False,
+            num_workers=config["training"]["num_workers"],
+        )
+        batch = next(iter(dataloader))
+        print(f"frames shape={tuple(batch['frames'].shape)}")
+        print(
+            f"frames range=[{batch['frames'].min().item():.4f}, "
+            f"{batch['frames'].max().item():.4f}]"
+        )
+        print(f"audio shape={tuple(batch['audio'].shape)}")
+        print(
+            f"audio range=[{batch['audio'].min().item():.4f}, "
+            f"{batch['audio'].max().item():.4f}]"
+        )
+        print(f"labels shape={tuple(batch['label'].shape)}")
 
     if args.command == "train":
         config = load_config(args.config)

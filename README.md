@@ -253,6 +253,40 @@ Always inspect the contact sheet and skipped-clip count before training. The
 optional `--detector haar` backend requires no model file, but it is less
 reliable and should only be used for explicit development checks.
 
+## FGI multimodal dataset
+
+`configs/fgi_inspired.yaml` defines the strict synchronized input contract for
+the future FGI model:
+
+```text
+frames: [batch, 30, 3, 224, 224]
+audio:  [batch, 48000]
+label:  [batch]
+```
+
+The dataset validates every clip before returning it:
+
+- exactly 30 face frames;
+- mono 16-bit PCM audio;
+- exactly 48,000 samples at 48 kHz;
+- face pixels normalized to `[-1, 1]`;
+- raw audio normalized per clip to `[-1, 1]`;
+- labels encoded as `real=0`, `fake=1`.
+
+After generating `data/manifests_fgi/`, test a split without constructing a
+model:
+
+```bash
+python3 main.py fgi-data-smoke \
+  --config configs/fgi_inspired.yaml \
+  --split train \
+  --batch-size 1
+```
+
+The command prints batch shapes and numeric ranges. The config deliberately
+contains `model.implementation_status: pending`: synchronized data loading is
+implemented, but FGI encoders, local inconsistencies, and attention are not.
+
 ## Dataset analysis
 
 The static dataset audit is available in

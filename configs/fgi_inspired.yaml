@@ -1,0 +1,61 @@
+# Strict synchronized input contract for the future FGI-inspired model.
+#
+# The data pipeline is implemented. The model is intentionally marked pending
+# and cannot yet be trained from main.py.
+
+experiment:
+  name: fgi_inspired
+  version: 1
+  seed: 42
+  runs_root: runs
+  output_dir: runs/fgi_inspired
+
+data:
+  manifest_dir: data/manifests_fgi
+  train_manifest: data/manifests_fgi/train_manifest.csv
+  val_manifest: data/manifests_fgi/val_manifest.csv
+  test_manifest: data/manifests_fgi/test_manifest.csv
+  label_mapping:
+    real: 0
+    fake: 1
+
+video:
+  expected_frames: 30
+  preprocessing:
+    name: resize_normalize
+    frame_size: 224
+    mean: [0.5, 0.5, 0.5]
+    std: [0.5, 0.5, 0.5]
+
+audio:
+  sample_rate: 48000
+  num_samples: 48000
+  channels: 1
+  normalization: minmax
+
+model:
+  name: fgi_inspired
+  implementation_status: pending
+  num_classes: 2
+
+training:
+  device: auto
+  epochs: 100
+  batch_size: 8
+  num_workers: 0
+  optimizer:
+    name: adam
+    learning_rate: 0.0001
+    weight_decay: 0.00001
+
+validation:
+  batch_size: 8
+
+evaluation:
+  batch_size: 1
+  metrics:
+    - accuracy
+    - precision
+    - recall
+    - f1
+    - auc

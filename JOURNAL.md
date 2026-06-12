@@ -952,3 +952,70 @@ les configs d'entraînement.
 - Suite complète : 118 tests passants.
 - Toutes les fonctions et classes du nouveau module possèdent une docstring.
 - Aucun fichier du dataset source n'est modifié.
+
+---
+
+## 12 juin 2026 - Dataset multimodal synchronisé FGI
+
+### Objectif
+Fournir un contrat d'entrée strict aux futurs encodeurs audio et vidéo, sans
+implémenter prématurément le modèle.
+
+### Réalisations
+- Ajout de `FGIMultimodalDataset`.
+- Ajout d'un collate et d'une factory de dataloader dédiés.
+- Ajout d'un pipeline construit depuis la configuration.
+- Ajout de `configs/fgi_inspired.yaml`.
+- Ajout de la commande `main.py fgi-data-smoke`.
+
+### Contrat
+
+```text
+frames: [batch, 30, 3, 224, 224]
+audio:  [batch, 48000]
+label:  [batch]
+```
+
+Chaque clip doit contenir exactement :
+- 30 images JPEG de visage ;
+- un WAV mono PCM 16 bits ;
+- 48 000 échantillons à 48 kHz.
+
+Les frames sont normalisées avec `mean=std=0.5`. L'audio utilise la
+normalisation min-max par clip du dépôt FGI original. Un signal constant est
+converti en zéros afin d'éviter une division par zéro.
+
+### Séparation des responsabilités
+Le dataset générique historique reste permissif pour les baselines. Le dataset
+FGI est séparé et strict afin qu'un clip incomplet ou désynchronisé échoue
+avant d'atteindre le modèle.
+
+La config déclare :
+
+```yaml
+model:
+  name: fgi_inspired
+  implementation_status: pending
+```
+
+Le validateur interdit de marquer le modèle prêt tant que son implémentation
+n'existe pas.
+
+### Smoke test réel
+Le crop YuNet généré précédemment a été chargé avec succès :
+
+```text
+frames (1, 30, 3, 224, 224), range [-1, 1]
+audio  (1, 48000), range [-1, 1]
+label  (1,)
+```
+
+### Prochaine étape
+- Générer les manifests FGI complets.
+- Implémenter les encodeurs audio et vidéo.
+- Définir les cartes de features locales comparables avant l'attention.
+
+### Résultat
+- Suite complète : 124 tests passants.
+- Smoke CLI réel validé avec `main.py fgi-data-smoke`.
+- Toutes les fonctions et classes des nouveaux modules possèdent une docstring.
