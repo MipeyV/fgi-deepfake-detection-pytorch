@@ -125,9 +125,9 @@ def test_validate_fgi_multimodal_config_accepts_project_config() -> None:
     validate_fgi_multimodal_config(config)
 
 
-def test_validate_fgi_multimodal_config_rejects_ready_full_model() -> None:
+def test_validate_fgi_multimodal_config_rejects_unknown_status() -> None:
     config = load_config("configs/fgi_inspired.yaml")
-    config["model"]["implementation_status"] = "ready"
+    config["model"]["implementation_status"] = "unknown"
 
-    with pytest.raises(ValueError, match="pending or encoders_ready"):
+    with pytest.raises(ValueError, match="pending, encoders_ready, or model_ready"):
         validate_fgi_multimodal_config(config)

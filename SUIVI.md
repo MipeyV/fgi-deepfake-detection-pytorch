@@ -264,7 +264,7 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 - [OK] `baseline_ensemble.yaml` - Configuration de fusion tardive
 - [OK] `r3d18_video.yaml` - Baseline vidéo préentraînée Kinetics-400
 - [OK] `fgi_preprocessing.yaml` - Contrat visuel préparatoire FGI
-- [OK] `fgi_inspired.yaml` - Contrat multimodal strict, modèle marqué pending
+- [OK] `fgi_inspired.yaml` - Modèle multimodal FGI configurable
 - [ ] `multimodal.yaml` - Configuration d'un modèle entraîné conjointement
 - [ ] `fgi_inspired.yaml` - Configuration FGI
 - [OK] Loader Python pour lire et valider la config audio baseline
@@ -279,6 +279,7 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 - [OK] Commande `fgi-face-crops`
 - [OK] Commande `fgi-data-smoke`
 - [OK] Commande `fgi-encoder-smoke`
+- [OK] Commande `fgi-model-smoke`
 - [ ] Logging et rapports avancés
 
 ### 6. **Jobs cluster** (`jobs/`)

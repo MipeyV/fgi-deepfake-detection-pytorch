@@ -36,7 +36,7 @@ from src.evaluation.plots import (
     plot_training_history_svg,
 )
 from src.models.audio_models import build_audio_model
-from src.models.fgi import build_fgi_encoders
+from src.models.fgi import build_fgi_encoders, build_fgi_model
 from src.models.video import build_video_model
 from src.runs import create_run_context
 from src.training.checkpoints import (
@@ -134,6 +134,19 @@ def parse_args() -> argparse.Namespace:
     )
     fgi_encoder_parser.add_argument("--batch-size", type=int, default=1)
     fgi_encoder_parser.add_argument("--device", type=str, default="cpu")
+
+    fgi_model_parser = subparsers.add_parser(
+        "fgi-model-smoke",
+        help="Run one synchronized batch through the complete FGI model.",
+    )
+    fgi_model_parser.add_argument("--config", type=Path, required=True)
+    fgi_model_parser.add_argument(
+        "--split",
+        choices=["train", "val", "test"],
+        default="train",
+    )
+    fgi_model_parser.add_argument("--batch-size", type=int, default=1)
+    fgi_model_parser.add_argument("--device", type=str, default="cpu")
 
     train_parser = subparsers.add_parser(
         "train",
@@ -1006,6 +1019,39 @@ def main() -> None:
             )
         print(f"video features shape={tuple(video_features.shape)}")
         print(f"audio features shape={tuple(audio_features.shape)}")
+
+    if args.command == "fgi-model-smoke":
+        config = load_config(args.config)
+        validate_fgi_multimodal_config(config)
+        manifest_path = config["data"][f"{args.split}_manifest"]
+        pipeline = build_fgi_input_pipeline(config)
+        batch = next(
+            iter(
+                pipeline.create_dataloader(
+                    manifest_path=manifest_path,
+                    batch_size=args.batch_size,
+                    shuffle=False,
+                    num_workers=config["training"]["num_workers"],
+                )
+            )
+        )
+        device = resolve_device(args.device)
+        model = build_fgi_model(config["model"]).to(device)
+        model.eval()
+        with torch.no_grad():
+            output = model(
+                batch["frames"].to(device),
+                batch["audio"].to(device),
+            )
+        print(f"logits shape={tuple(output.logits.shape)}")
+        print(
+            "inconsistency map shape="
+            f"{tuple(output.inconsistency_map.shape)}"
+        )
+        if output.attention_map is None:
+            print("attention map shape=None")
+        else:
+            print(f"attention map shape={tuple(output.attention_map.shape)}")
 
     if args.command == "train":
         config = load_config(args.config)

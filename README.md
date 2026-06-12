@@ -256,7 +256,7 @@ reliable and should only be used for explicit development checks.
 ## FGI multimodal dataset
 
 `configs/fgi_inspired.yaml` defines the strict synchronized input contract for
-the future FGI model:
+the FGI-inspired model:
 
 ```text
 frames: [batch, 30, 3, 224, 224]
@@ -311,8 +311,35 @@ python3 main.py fgi-encoder-smoke \
   --device cpu
 ```
 
-The configuration is marked `encoders_ready`, not `ready`: the encoders do not
-yet calculate audio-visual inconsistency scores or classification logits.
+## FGI inconsistency classifier
+
+The complete forward pass compares every spatial video location with the
+synchronized audio representation:
+
+```text
+video [B, 128, 15, 28, 28] + audio [B, 128, 15]
+    -> local inconsistency map [B, 28, 28]
+    -> spatial attention map [B, 28, 28]
+    -> classification logits [B, 2]
+```
+
+The distance map, attention map, and encoder features remain available in the
+model output for inspection. Dropout, attention dimensions, attention mode,
+and encoder dimensions are configurable under `model`.
+
+Run the complete data-to-logits smoke test with:
+
+```bash
+python3 main.py fgi-model-smoke \
+  --config configs/fgi_inspired.yaml \
+  --split train \
+  --batch-size 1 \
+  --device cpu
+```
+
+The configuration is now marked `model_ready`. This means the forward model is
+implemented; integration with the generic `train` and `eval` commands is the
+next step.
 
 ## Dataset analysis
 
