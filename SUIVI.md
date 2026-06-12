@@ -72,6 +72,16 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
   - politique `error` ou `skip` pour les clips sans visage fiable
   - planche contact PNG début/milieu/fin pour contrôle qualité
 
+- [OK] **Dataset multimodal FGI strict** :
+  - chargement conjoint de 30 crops faciaux et de l'audio synchronisé
+  - vidéo `[batch, 30, 3, 224, 224]`
+  - audio mono `[batch, 48000]`
+  - validation stricte du nombre de frames
+  - validation PCM 16 bits, 48 kHz et 48 000 échantillons
+  - normalisation vidéo et audio vers `[-1, 1]`
+  - collate multimodal dédié
+  - commande smoke sans modèle
+
 - [OK] **split_manifest.py** :
   - Hash-based split des données (train/val/test = 7:2:1)
   - Validation de manifests
@@ -251,6 +261,7 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 - [OK] `baseline_ensemble.yaml` - Configuration de fusion tardive
 - [OK] `r3d18_video.yaml` - Baseline vidéo préentraînée Kinetics-400
 - [OK] `fgi_preprocessing.yaml` - Contrat visuel préparatoire FGI
+- [OK] `fgi_inspired.yaml` - Contrat multimodal strict, modèle marqué pending
 - [ ] `multimodal.yaml` - Configuration d'un modèle entraîné conjointement
 - [ ] `fgi_inspired.yaml` - Configuration FGI
 - [OK] Loader Python pour lire et valider la config audio baseline
@@ -263,6 +274,7 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 - [OK] Pipeline audio-only train/eval minimal
 - [OK] Pipeline video-only train/eval minimal
 - [OK] Commande `fgi-face-crops`
+- [OK] Commande `fgi-data-smoke`
 - [ ] Logging et rapports avancés
 
 ### 6. **Jobs cluster** (`jobs/`)
@@ -325,9 +337,9 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 ## Prochaines Étapes (Priorité Décroissante)
 
 1. **URGENT** : Générer et contrôler les crops YuNet train/val/test
-2. **IMPORTANT** : Étendre le dataset pour fournir conjointement audio et vidéo au modèle
-3. **IMPORTANT** : Implémenter les encodeurs audio et vidéo FGI
-4. **IMPORTANT** : Ajouter les distances locales audio-visuelles et l'attention spatiale
+2. **IMPORTANT** : Implémenter les encodeurs audio et vidéo FGI
+3. **IMPORTANT** : Ajouter les distances locales audio-visuelles et l'attention spatiale
+4. **IMPORTANT** : Ajouter le trainer et l'évaluateur multimodaux
 5. **IMPORTANT** : Ajouter les pseudo-fakes temporels au train uniquement
 6. **IMPORTANT** : Ajouter balanced accuracy, F1 macro, AUC-PR et courbes ROC/PR
 7. **IMPORTANT** : Comparer FGI aux baselines sur les mêmes splits
@@ -353,4 +365,4 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 ---
 
 **Dernière mise à jour** : 12 juin 2026
-**Statut** : Baselines et R3D-18 évalués [OK] | Préprocessing FGI [OK] | Modèle FGI [À FAIRE]
+**Statut** : Baselines/R3D-18 [OK] | Entrées FGI synchronisées [OK] | Modèle FGI [À FAIRE]

@@ -4,7 +4,14 @@ from PIL import Image
 from pathlib import Path
 
 
-def create_clip(clip_path: Path, num_frames: int = 3) -> None:
+def create_clip(
+    clip_path: Path,
+    num_frames: int = 3,
+    sample_rate: int = 48000,
+    audio_samples: int = 48000,
+    varying_audio: bool = False,
+) -> None:
+    """Create a synthetic synchronized frame/audio clip for tests."""
     clip_path.mkdir(parents=True)
 
     for index in range(num_frames):
@@ -12,12 +19,20 @@ def create_clip(clip_path: Path, num_frames: int = 3) -> None:
         image.save(clip_path / f"{index + 1:06d}.jpg")
 
     audio_path = clip_path / "audio.wav"
-    samples = np.zeros(48000, dtype=np.int16)
+    if varying_audio:
+        samples = np.linspace(
+            -16000,
+            16000,
+            audio_samples,
+            dtype=np.int16,
+        )
+    else:
+        samples = np.zeros(audio_samples, dtype=np.int16)
 
     with wave.open(str(audio_path), "wb") as audio_file:
         audio_file.setnchannels(1)
         audio_file.setsampwidth(2)
-        audio_file.setframerate(48000)
+        audio_file.setframerate(sample_rate)
         audio_file.writeframes(samples.tobytes())
 
 
