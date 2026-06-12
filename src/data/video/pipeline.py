@@ -9,6 +9,7 @@ from src.data.dataloader import create_dataloader
 from src.data.video.transforms import (
     FrameTransform,
     build_resize_center_crop_transform,
+    build_resize_normalize_transform,
     build_resize_square_transform,
 )
 
@@ -44,6 +45,12 @@ def build_video_input_pipeline(video_config: dict) -> VideoInputPipeline:
     if preprocessing_name == "resize_square":
         frame_transform = build_resize_square_transform(
             preprocessing_config["frame_size"]
+        )
+    elif preprocessing_name == "resize_normalize":
+        frame_transform = build_resize_normalize_transform(
+            frame_size=preprocessing_config["frame_size"],
+            mean=preprocessing_config["mean"],
+            std=preprocessing_config["std"],
         )
     elif preprocessing_name == "resize_center_crop":
         frame_transform = build_resize_center_crop_transform(

@@ -804,3 +804,77 @@ sbatch --export=ALL,CONFIG=configs/r3d18_video.yaml \
   préalimenté sur le cluster.
 - Le pipeline reste unimodal : la synchronisation et les interactions
   audio-vidéo propres à FGI ne sont pas encore implémentées.
+
+---
+
+## 12 juin 2026 - Résultats R3D-18 et préparation du pipeline FGI
+
+### Résultats R3D-18
+- Training arrêté à l'epoch 6 après dégradation de la validation.
+- Meilleure validation observée :
+  - `val_accuracy = 0.7653` à l'epoch 3,
+  - meilleur `val_loss = 0.4930` à l'epoch 1.
+- Résultats sur les 480 clips de test :
+  - `accuracy = 0.7417`,
+  - `AUC = 0.6207`,
+  - `F1 = 0.8450`,
+  - 18 vrais négatifs,
+  - 32 faux positifs,
+  - 92 faux négatifs,
+  - 338 vrais positifs.
+
+### Analyse
+R3D-18 améliore légèrement l'AUC et reconnaît davantage de clips `real` que
+la baseline vidéo pondérée, mais il perd en accuracy et en F1. La balanced
+accuracy reste faible et proche du hasard à cause d'un rappel limité sur la
+classe `real`.
+
+L'écart croissant entre l'entraînement et la validation confirme un
+surapprentissage. Continuer uniquement à ajuster la tête R3D-18 paraît moins
+informatif que de passer à l'objectif multimodal du projet.
+
+### Préprocessing FGI
+- Création de la branche `feature/fgi-preprocessing`.
+- Ajout du transform configurable `resize_normalize`.
+- Support des paramètres YAML :
+  - `frame_size`,
+  - moyenne RGB `mean`,
+  - écart-type RGB `std`.
+- Ajout du réglage FGI officiel :
+  - resize `224 x 224`,
+  - `mean = [0.5, 0.5, 0.5]`,
+  - `std = [0.5, 0.5, 0.5]`,
+  - valeurs de sortie dans `[-1, 1]`.
+- Ajout de `configs/fgi_preprocessing.yaml`.
+
+### Choix d'architecture
+Le preprocessing et le modèle restent sélectionnés indépendamment :
+
+```yaml
+video:
+  preprocessing:
+    name: resize_normalize
+
+model:
+  name: video_cnn_baseline
+```
+
+La config préparatoire utilise volontairement le CNN vidéo existant. Associer
+directement cette normalisation à R3D-18 préentraîné appliquerait des
+statistiques différentes de celles de Kinetics-400. Le futur modèle
+`model.name: fgi` pourra réutiliser le preprocessing sans modifier les
+baselines.
+
+### Prochaine étape
+- Fournir conjointement les frames et l'audio synchronisés à un trainer
+  multimodal.
+- Ajouter les encodeurs audio et vidéo.
+- Implémenter les distances locales, l'attention spatiale puis les pseudo-fakes
+  temporels.
+
+### Résultat
+- Les trois preprocessings vidéo sont sélectionnables par configuration :
+  `resize_square`, `resize_center_crop`, `resize_normalize`.
+- Le choix du preprocessing reste indépendant de `model.name`.
+- La suite complète contient 111 tests passants avant l'ajout de la config
+  préparatoire.

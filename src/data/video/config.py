@@ -28,6 +28,28 @@ def validate_video_preprocessing_config(preprocessing_config: dict) -> None:
         )
         return
 
+    if preprocessing_name == "resize_normalize":
+        _require_keys(preprocessing_config, {"frame_size", "mean", "std"})
+        _require_positive(
+            preprocessing_config["frame_size"],
+            "video.preprocessing.frame_size",
+        )
+        for key in ("mean", "std"):
+            values = preprocessing_config[key]
+            if not isinstance(values, list) or len(values) != 3:
+                raise ValueError(
+                    f"video.preprocessing.{key} must contain three RGB values"
+                )
+            if not all(isinstance(value, int | float) for value in values):
+                raise ValueError(
+                    f"video.preprocessing.{key} must contain numeric values"
+                )
+        if any(value <= 0 for value in preprocessing_config["std"]):
+            raise ValueError(
+                "video.preprocessing.std values must be greater than 0"
+            )
+        return
+
     if preprocessing_name == "resize_center_crop":
         _require_keys(preprocessing_config, {"resize_size", "crop_size"})
         resize_size = preprocessing_config["resize_size"]

@@ -186,9 +186,33 @@ model:
   name: r3d18
 ```
 
-A future FGI input pipeline can therefore add synchronized crops, temporal
-sampling, landmarks, or other features without changing the R3D-18 module.
-Likewise, another classifier can reuse an existing input pipeline.
+Supported visual preprocessing strategies are:
+
+- `resize_square`: direct square resize used by the original video baseline.
+- `resize_center_crop`: resize followed by a centered crop for R3D-18.
+- `resize_normalize`: square resize followed by configurable RGB
+  normalization. With `mean` and `std` set to `0.5`, frames are mapped to
+  `[-1, 1]` as in the official FGI visual pipeline.
+
+The preparatory FGI configuration demonstrates that preprocessing and model
+selection remain independent:
+
+```yaml
+video:
+  preprocessing:
+    name: resize_normalize
+    frame_size: 224
+    mean: [0.5, 0.5, 0.5]
+    std: [0.5, 0.5, 0.5]
+
+model:
+  name: video_cnn_baseline
+```
+
+See `configs/fgi_preprocessing.yaml`. It is an executable input-pipeline
+experiment, not yet the multimodal FGI model. The next FGI stages are separate
+audio and visual encoders, local audio-visual distances, spatial attention, and
+temporally local pseudo-fake augmentation.
 
 ## Dataset analysis
 

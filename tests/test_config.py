@@ -49,6 +49,14 @@ def test_validate_video_baseline_config_accepts_r3d18_config() -> None:
     validate_video_baseline_config(config)
 
 
+def test_validate_video_config_accepts_resize_normalize_preprocessing() -> None:
+    config = load_config("configs/fgi_preprocessing.yaml")
+
+    validate_video_baseline_config(config)
+    assert config["video"]["preprocessing"]["name"] == "resize_normalize"
+    assert config["model"]["name"] == "video_cnn_baseline"
+
+
 def test_validate_audio_baseline_config_rejects_missing_section() -> None:
     config = load_config("configs/baseline_audio.yaml")
     config.pop("model")
