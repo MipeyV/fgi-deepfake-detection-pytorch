@@ -285,10 +285,13 @@ def validate_fgi_multimodal_config(config: dict) -> None:
     if config["model"].get("name") != "fgi_inspired":
         raise ValueError("FGI config model.name must be fgi_inspired")
     implementation_status = config["model"].get("implementation_status")
-    if implementation_status not in {"pending", "encoders_ready"}:
+    if implementation_status not in {
+        "pending",
+        "encoders_ready",
+        "model_ready",
+    }:
         raise ValueError(
-            "FGI model status must be pending or encoders_ready "
-            "until the full model is implemented"
+            "FGI model status must be pending, encoders_ready, or model_ready"
         )
     encoder_config = config["model"].get("encoders")
     if not isinstance(encoder_config, dict):
@@ -303,3 +306,9 @@ def validate_fgi_multimodal_config(config: dict) -> None:
         value = encoder_config.get(key)
         if not isinstance(value, int) or value <= 0:
             raise ValueError(f"model.encoders.{key} must be a positive integer")
+    if implementation_status == "model_ready":
+        attention_config = config["model"].get("attention")
+        if not isinstance(attention_config, dict):
+            raise ValueError("model.attention must be a mapping")
+        if attention_config.get("mode") not in {"multiply", "residual"}:
+            raise ValueError("Unsupported FGI attention mode")

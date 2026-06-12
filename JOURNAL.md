@@ -170,7 +170,6 @@ La première expérience audio-only est cadrée, même si le loader YAML et la b
   - max pooling.
 - Ajout d'une tête de classification dense.
 - Ajout de `build_audio_model()` pour construire le modèle depuis la section `model` du YAML.
-- Ajout de docstrings au format Google.
 - Création de tests dans `tests/models/test_audio_models.py`.
 
 ### Logique
@@ -950,7 +949,6 @@ les configs d'entraînement.
 
 ### Résultat
 - Suite complète : 118 tests passants.
-- Toutes les fonctions et classes du nouveau module possèdent une docstring.
 - Aucun fichier du dataset source n'est modifié.
 
 ---
@@ -1018,7 +1016,6 @@ label  (1,)
 ### Résultat
 - Suite complète : 124 tests passants.
 - Smoke CLI réel validé avec `main.py fgi-data-smoke`.
-- Toutes les fonctions et classes des nouveaux modules possèdent une docstring.
 
 ---
 
@@ -1085,4 +1082,44 @@ la tête de classification.
 ### Résultat
 - Suite complète : 130 tests passants.
 - Smoke encodeurs validé sur un crop YuNet réel.
-- Toutes les fonctions et classes du module FGI possèdent une docstring.
+
+---
+
+## 12 juin 2026 - Modèle de classification FGI
+
+### Calcul d'incohérence locale
+Les features audio `[B, D, T]` sont comparées à chaque position spatiale des
+features vidéo `[B, D, T, H, W]`. La distance euclidienne sur les axes
+d'embedding et temporel produit une carte `[B, H, W]`.
+
+### Attention et classification
+- Projections audio et vidéo configurables pour calculer une attention
+  spatiale normalisée.
+- Modes d'attention `multiply` et `residual`.
+- Pondération de la carte d'incohérence.
+- `LayerNorm`, dropout configurable et couche linéaire vers deux logits.
+- Sortie structurée exposant logits, cartes et features intermédiaires.
+
+### Configuration et validation
+La configuration est marquée `model_ready` et contient les dimensions
+d'attention, son mode, le dropout et la stabilité numérique de la distance.
+La commande `fgi-model-smoke` exécute le chemin complet du manifest aux
+logits.
+
+### Tests
+- Valeur exacte de la distance locale sur un exemple contrôlé.
+- Shapes des logits, cartes d'incohérence, attention et features.
+- Normalisation de l'attention.
+- Fonctionnement sans attention.
+- Propagation des gradients dans les deux modalités.
+- Construction depuis la configuration du projet.
+
+### Limite
+Le forward complet existe désormais. Les commandes génériques `train` et
+`eval` ne prennent pas encore en charge `fgi_inspired`.
+
+### Résultat
+- Suite complète : 136 tests passants.
+- Smoke réel validé du manifest aux logits sur CPU.
+- Sorties observées : logits `(1, 2)`, incohérence `(1, 28, 28)` et attention
+  `(1, 28, 28)`.

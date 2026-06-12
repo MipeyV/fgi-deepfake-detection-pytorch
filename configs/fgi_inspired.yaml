@@ -1,7 +1,7 @@
-# Strict synchronized input contract for the future FGI-inspired model.
+# Strict synchronized input contract for the FGI-inspired model.
 #
-# The data pipeline is implemented. The model is intentionally marked pending
-# and cannot yet be trained from main.py.
+# The data pipeline and complete forward model are implemented. Training and
+# evaluation integration in main.py remain pending.
 
 experiment:
   name: fgi_inspired
@@ -35,14 +35,20 @@ audio:
 
 model:
   name: fgi_inspired
-  implementation_status: encoders_ready
+  implementation_status: model_ready
   num_classes: 2
+  dropout: 0.5
+  distance_eps: 0.00000001
   encoders:
     embedding_dim: 128
     temporal_size: 15
     spatial_size: 28
     video_stem_channels: 32
     audio_hidden_channels: 128
+  attention:
+    enabled: true
+    embedding_dim: 32
+    mode: residual
 
 training:
   device: auto
