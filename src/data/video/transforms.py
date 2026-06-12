@@ -3,7 +3,7 @@
 from collections.abc import Callable
 
 from PIL import Image
-from torch import Tensor
+from torch import Tensor, tensor
 
 from src.data.dataset import pil_to_tensor
 
@@ -19,6 +19,29 @@ def build_resize_square_transform(frame_size: int) -> FrameTransform:
     def transform(image: Image.Image) -> Tensor:
         resized = image.resize((frame_size, frame_size), Image.BILINEAR)
         return pil_to_tensor(resized)
+
+    return transform
+
+
+def build_resize_normalize_transform(
+    frame_size: int,
+    mean: tuple[float, float, float] | list[float],
+    std: tuple[float, float, float] | list[float],
+) -> FrameTransform:
+    """Resize each frame to a square and normalize its RGB channels."""
+    if frame_size <= 0:
+        raise ValueError("frame_size must be greater than 0")
+    if len(mean) != 3 or len(std) != 3:
+        raise ValueError("mean and std must contain three RGB values")
+    if any(value <= 0 for value in std):
+        raise ValueError("std values must be greater than 0")
+
+    channel_mean = tensor(mean).view(3, 1, 1)
+    channel_std = tensor(std).view(3, 1, 1)
+
+    def transform(image: Image.Image) -> Tensor:
+        resized = image.resize((frame_size, frame_size), Image.BILINEAR)
+        return (pil_to_tensor(resized) - channel_mean) / channel_std
 
     return transform
 

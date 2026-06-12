@@ -52,6 +52,13 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
   - Fonction `collate_deepfake_batch()` pour collation personnalisée
   - Support batch_size, shuffle, num_workers configurables
 
+- [OK] **Pipeline vidéo configurable** :
+  - `resize_square`
+  - `resize_center_crop`
+  - `resize_normalize`
+  - normalisation FGI configurable vers `[-1, 1]`
+  - sélection indépendante du modèle via YAML
+
 - [OK] **split_manifest.py** :
   - Hash-based split des données (train/val/test = 7:2:1)
   - Validation de manifests
@@ -229,10 +236,12 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 - [OK] `baseline_audio.yaml` - Configuration audio-only
 - [OK] `baseline_video.yaml` - Configuration video-only
 - [OK] `baseline_ensemble.yaml` - Configuration de fusion tardive
+- [OK] `r3d18_video.yaml` - Baseline vidéo préentraînée Kinetics-400
+- [OK] `fgi_preprocessing.yaml` - Contrat visuel préparatoire FGI
 - [ ] `multimodal.yaml` - Configuration d'un modèle entraîné conjointement
 - [ ] `fgi_inspired.yaml` - Configuration FGI
 - [OK] Loader Python pour lire et valider la config audio baseline
-- [ ] Format YAML standardisé pour les futures configs
+- [OK] Sélection indépendante de `video.preprocessing.name` et `model.name`
 
 ### 5. **Mise à jour main.py**
 - [OK] Support de la commande `train`
@@ -252,7 +261,7 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 
 ### 7. **Améliorations Futures**
 - [ ] Optimisation des hyperparamètres
-- [ ] Data augmentation pour audio et vidéo
+- [ ] Data augmentation cohérente au niveau du clip
 - [ ] Stratégies de régularisation
 - [OK] Première technique d'ensemble par moyenne des probabilités
 - [EN COURS] Analyse des erreurs et désaccords par clip
@@ -268,8 +277,8 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 | **Code base** | Implémentation complète du papier | Réimplémentation modulaire |
 | **Modularité** | Peut être monolithique | Modules séparés et testables |
 | **Tests** | Peut manquer de couverture | Tests unitaires dès le départ |
-| **Configurabilité** | Codes en dur (hardcoded) | YAML configs (future) |
-| **Documentation** | Peut être minimale | Documentation complète (future) |
+| **Configurabilité** | Codes en dur (hardcoded) | Pipelines et modèles sélectionnés en YAML |
+| **Documentation** | Peut être minimale | README, journal et suivi maintenus |
 | **Maintenabilité** | Optimisée pour recherche | Optimisée pour réutilisabilité |
 
 ### Améliorations Apportées
@@ -301,12 +310,12 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 
 ## Prochaines Étapes (Priorité Décroissante)
 
-1. **URGENT** : Analyser les résultats du job ensemble `843121`
-2. **IMPORTANT** : Traiter le déséquilibre des classes
-3. **IMPORTANT** : Évaluer les meilleurs checkpoints sur tout le test
-4. **IMPORTANT** : Reprendre ou relancer le training vidéo au-delà de l'epoch 7
-5. **IMPORTANT** : Ajouter F1 macro, AUC-PR et courbes ROC/PR
-6. **IMPORTANT** : Implémenter un modèle multimodal entraîné conjointement
+1. **URGENT** : Étendre le dataset pour fournir conjointement audio et vidéo au modèle
+2. **IMPORTANT** : Implémenter les encodeurs audio et vidéo FGI
+3. **IMPORTANT** : Ajouter les distances locales audio-visuelles et l'attention spatiale
+4. **IMPORTANT** : Ajouter les pseudo-fakes temporels au train uniquement
+5. **IMPORTANT** : Ajouter balanced accuracy, F1 macro, AUC-PR et courbes ROC/PR
+6. **IMPORTANT** : Comparer FGI aux baselines sur les mêmes splits
 7. **NICE-TO-HAVE** : Ajouter TensorBoard ou un index global des runs
 
 ---
@@ -322,12 +331,12 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 
 ## Références Utiles
 
-- [FGI Paper (BMVC 2024)](https://arxiv.org/abs/xxxx.xxxxx) - *À confirmer*
+- [FGI Paper (BMVC 2024)](https://arxiv.org/abs/2408.06753)
 - [Repo Original](https://github.com/aseuteurideu/FGI)
 - [PyTorch Dataset & DataLoader](https://pytorch.org/tutorials/beginner/data_loading_tutorial.html)
 - [DFDC Dataset](https://deepfakedetectionchallenge.ai/) - Si utilisé
 
 ---
 
-**Dernière mise à jour** : 7 juin 2026
-**Statut** : Baselines audio/vidéo exécutées [OK] | Analyse ensemble et correction du déséquilibre [EN COURS]
+**Dernière mise à jour** : 12 juin 2026
+**Statut** : Baselines et R3D-18 évalués [OK] | Préprocessing FGI [OK] | Modèle FGI [À FAIRE]
