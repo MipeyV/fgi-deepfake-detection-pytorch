@@ -36,6 +36,7 @@ from src.evaluation.plots import (
     plot_training_history_svg,
 )
 from src.models.audio_models import build_audio_model
+from src.models.fgi import build_fgi_encoders
 from src.models.video import build_video_model
 from src.runs import create_run_context
 from src.training.checkpoints import (
@@ -120,6 +121,19 @@ def parse_args() -> argparse.Namespace:
         default="train",
     )
     fgi_smoke_parser.add_argument("--batch-size", type=int, default=1)
+
+    fgi_encoder_parser = subparsers.add_parser(
+        "fgi-encoder-smoke",
+        help="Run one synchronized batch through the FGI encoders.",
+    )
+    fgi_encoder_parser.add_argument("--config", type=Path, required=True)
+    fgi_encoder_parser.add_argument(
+        "--split",
+        choices=["train", "val", "test"],
+        default="train",
+    )
+    fgi_encoder_parser.add_argument("--batch-size", type=int, default=1)
+    fgi_encoder_parser.add_argument("--device", type=str, default="cpu")
 
     train_parser = subparsers.add_parser(
         "train",
@@ -966,6 +980,32 @@ def main() -> None:
             f"{batch['audio'].max().item():.4f}]"
         )
         print(f"labels shape={tuple(batch['label'].shape)}")
+
+    if args.command == "fgi-encoder-smoke":
+        config = load_config(args.config)
+        validate_fgi_multimodal_config(config)
+        manifest_path = config["data"][f"{args.split}_manifest"]
+        pipeline = build_fgi_input_pipeline(config)
+        batch = next(
+            iter(
+                pipeline.create_dataloader(
+                    manifest_path=manifest_path,
+                    batch_size=args.batch_size,
+                    shuffle=False,
+                    num_workers=config["training"]["num_workers"],
+                )
+            )
+        )
+        device = resolve_device(args.device)
+        encoders = build_fgi_encoders(config["model"]).to(device)
+        encoders.eval()
+        with torch.no_grad():
+            video_features, audio_features = encoders(
+                batch["frames"].to(device),
+                batch["audio"].to(device),
+            )
+        print(f"video features shape={tuple(video_features.shape)}")
+        print(f"audio features shape={tuple(audio_features.shape)}")
 
     if args.command == "train":
         config = load_config(args.config)

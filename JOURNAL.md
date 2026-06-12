@@ -1019,3 +1019,70 @@ label  (1,)
 - Suite complète : 124 tests passants.
 - Smoke CLI réel validé avec `main.py fgi-data-smoke`.
 - Toutes les fonctions et classes des nouveaux modules possèdent une docstring.
+
+---
+
+## 12 juin 2026 - Encodeurs audio et vidéo FGI
+
+### Référence
+Le modèle FGI original produit :
+- des features vidéo locales `[B, 128, 15, 28, 28]` ;
+- des features audio temporelles `[B, 128, 15]`.
+
+Ce contrat est conservé, mais les composants sont réimplémentés de manière
+modulaire et testable.
+
+### Encodeur vidéo
+- Réseau résiduel 3D compact.
+- Entrée `[B, 30, 3, 224, 224]`.
+- Réorganisation interne en `[B, 3, 30, 224, 224]`.
+- Réduction temporelle et spatiale progressive.
+- Pooling adaptatif final vers `[B, 128, 15, 28, 28]`.
+
+### Encodeur audio
+- Entrée waveform brute `[B, 48000]`.
+- Convolution initiale `kernel=80`, `stride=8`, comme dans FGI.
+- Pooling et convolutions temporelles.
+- Projection vers 128 canaux.
+- Pooling adaptatif final vers `[B, 128, 15]`.
+
+### Alignement
+`FGIEncoderPair` vérifie que les deux encodeurs partagent :
+- la même dimension d'embedding ;
+- le même nombre de positions temporelles.
+
+La configuration contient maintenant :
+
+```yaml
+model:
+  implementation_status: encoders_ready
+  encoders:
+    embedding_dim: 128
+    temporal_size: 15
+    spatial_size: 28
+```
+
+### Tests
+- Tests de shapes sur des tenseurs synthétiques.
+- Vérification de propagation des gradients jusqu'aux deux entrées.
+- Validation de la factory depuis la vraie configuration.
+- Rejet des dimensions audio/vidéo incompatibles.
+- Commande `main.py fgi-encoder-smoke`.
+
+### Smoke test réel
+Le clip YuNet de contrôle traverse le dataloader puis les encodeurs sur CPU :
+
+```text
+video features shape=(1, 128, 15, 28, 28)
+audio features shape=(1, 128, 15)
+```
+
+### Limite
+Ces features ne produisent pas encore une prédiction. La prochaine étape
+calculera les distances audio-visuelles locales, puis l'attention spatiale et
+la tête de classification.
+
+### Résultat
+- Suite complète : 130 tests passants.
+- Smoke encodeurs validé sur un crop YuNet réel.
+- Toutes les fonctions et classes du module FGI possèdent une docstring.

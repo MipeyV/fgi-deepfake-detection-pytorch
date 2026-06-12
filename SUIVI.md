@@ -230,7 +230,10 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 - [EN COURS] Fusion tardive audio-vidéo disponible pour évaluation
 - [ ] Modèle multimodal entraîné conjointement
 - [ ] Modèle inspiré FGI (fine-grained inconsistency detection)
-- [ ] Encodeurs pour audio et vidéo séparément
+- [OK] Encodeurs FGI audio et vidéo séparés
+- [OK] Projection commune `[B, 128, 15]`
+- [OK] Features vidéo locales `[B, 128, 15, 28, 28]`
+- [ ] Distance locale et attention FGI
 
 ### 2. **Logique d'Entraînement** (`src/training/`)
 - [OK] Boucle d'entraînement de base audio-only
@@ -275,6 +278,7 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 - [OK] Pipeline video-only train/eval minimal
 - [OK] Commande `fgi-face-crops`
 - [OK] Commande `fgi-data-smoke`
+- [OK] Commande `fgi-encoder-smoke`
 - [ ] Logging et rapports avancés
 
 ### 6. **Jobs cluster** (`jobs/`)
@@ -337,8 +341,8 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 ## Prochaines Étapes (Priorité Décroissante)
 
 1. **URGENT** : Générer et contrôler les crops YuNet train/val/test
-2. **IMPORTANT** : Implémenter les encodeurs audio et vidéo FGI
-3. **IMPORTANT** : Ajouter les distances locales audio-visuelles et l'attention spatiale
+2. **IMPORTANT** : Ajouter les distances locales audio-visuelles et l'attention spatiale
+3. **IMPORTANT** : Ajouter la tête de classification FGI
 4. **IMPORTANT** : Ajouter le trainer et l'évaluateur multimodaux
 5. **IMPORTANT** : Ajouter les pseudo-fakes temporels au train uniquement
 6. **IMPORTANT** : Ajouter balanced accuracy, F1 macro, AUC-PR et courbes ROC/PR
@@ -365,4 +369,4 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 ---
 
 **Dernière mise à jour** : 12 juin 2026
-**Statut** : Baselines/R3D-18 [OK] | Entrées FGI synchronisées [OK] | Modèle FGI [À FAIRE]
+**Statut** : Entrées FGI [OK] | Encodeurs FGI [OK] | Incohérences/attention [À FAIRE]

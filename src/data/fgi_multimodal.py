@@ -284,7 +284,22 @@ def validate_fgi_multimodal_config(config: dict) -> None:
 
     if config["model"].get("name") != "fgi_inspired":
         raise ValueError("FGI config model.name must be fgi_inspired")
-    if config["model"].get("implementation_status") != "pending":
+    implementation_status = config["model"].get("implementation_status")
+    if implementation_status not in {"pending", "encoders_ready"}:
         raise ValueError(
-            "FGI model must remain marked pending until it is implemented"
+            "FGI model status must be pending or encoders_ready "
+            "until the full model is implemented"
         )
+    encoder_config = config["model"].get("encoders")
+    if not isinstance(encoder_config, dict):
+        raise ValueError("model.encoders must be a mapping")
+    for key in (
+        "embedding_dim",
+        "temporal_size",
+        "spatial_size",
+        "video_stem_channels",
+        "audio_hidden_channels",
+    ):
+        value = encoder_config.get(key)
+        if not isinstance(value, int) or value <= 0:
+            raise ValueError(f"model.encoders.{key} must be a positive integer")
