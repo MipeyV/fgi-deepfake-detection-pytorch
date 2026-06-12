@@ -284,8 +284,35 @@ python3 main.py fgi-data-smoke \
 ```
 
 The command prints batch shapes and numeric ranges. The config deliberately
-contains `model.implementation_status: pending`: synchronized data loading is
-implemented, but FGI encoders, local inconsistencies, and attention are not.
+tracks component readiness through `model.implementation_status`.
+
+## FGI encoders
+
+The first model components now transform synchronized inputs into aligned local
+features:
+
+```text
+faces [B, 30, 3, 224, 224] -> video [B, 128, 15, 28, 28]
+audio [B, 48000]            -> audio [B, 128, 15]
+```
+
+The video encoder is a compact residual 3D CNN. The raw-audio encoder follows
+the convolutional structure used by FGI and adaptively projects its temporal
+axis to the same 15 positions as video. Both embedding dimensions and output
+sizes are configurable under `model.encoders`.
+
+Run the complete data-to-encoder smoke test with:
+
+```bash
+python3 main.py fgi-encoder-smoke \
+  --config configs/fgi_inspired.yaml \
+  --split train \
+  --batch-size 1 \
+  --device cpu
+```
+
+The configuration is marked `encoders_ready`, not `ready`: the encoders do not
+yet calculate audio-visual inconsistency scores or classification logits.
 
 ## Dataset analysis
 
