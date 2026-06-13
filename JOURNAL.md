@@ -1202,3 +1202,42 @@ L'AUC est le résultat principal de ce run : le modèle sépare bien mieux les
 classes que les baselines, mais le seuil de décision doit être calibré sur la
 validation. Une évaluation agrégée par vidéo et des métriques équilibrées
 devront compléter la prochaine expérience.
+
+---
+
+## 13 juin 2026 - Calibration et évaluation par vidéo
+
+### Calibration
+Le seuil de décision peut maintenant être appris exclusivement sur le split
+de validation. La configuration FGI sélectionne le seuil qui maximise
+l'accuracy équilibrée, puis réutilise ce seuil sans modification sur le test.
+Une valeur explicite passée avec `--decision-threshold` reste prioritaire.
+
+Le fichier `metrics/threshold_calibration.json` conserve le seuil choisi, la
+métrique optimisée, sa valeur sur validation et le nombre d'exemples utilisés.
+Une calibration complète exige la présence des deux classes. Les smoke tests
+limités par `--max-batches` signalent une validation incomplète et utilisent
+temporairement le seuil `0.5`.
+
+### Métriques
+Les rapports binaires incluent désormais :
+
+- accuracy et accuracy équilibrée ;
+- precision, recall et spécificité ;
+- F1 fake et F1 macro ;
+- AUC ROC et average precision ;
+- seuil de décision appliqué.
+
+### Niveau vidéo
+Les probabilités fake des clips partageant le même `video_id` sont moyennées.
+Le pipeline écrit séparément :
+
+- `predictions/<split>_video_predictions.csv` ;
+- `metrics/<split>_video_metrics.json`.
+
+Cette agrégation évite qu'une vidéo découpée en beaucoup de clips pèse
+artificiellement plus lourd dans le résultat final.
+
+### Validation
+- Suite complète : 146 tests passants.
+- Vérification syntaxique de `main.py` et des modules d'évaluation.

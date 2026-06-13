@@ -74,12 +74,19 @@ validation:
 evaluation:
   auto_after_training: true
   batch_size: 8
+  decision_threshold: calibrated
+  calibration_metric: balanced_accuracy
+  video_aggregation: mean
   metrics:
     - accuracy
+    - balanced_accuracy
     - precision
     - recall
+    - specificity
     - f1
+    - f1_macro
     - auc
+    - average_precision
 
 checkpointing:
   save_dir: checkpoints

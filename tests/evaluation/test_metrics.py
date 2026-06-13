@@ -2,6 +2,8 @@ import pytest
 import torch
 
 from src.evaluation.metrics import (
+    calibrate_binary_threshold,
+    compute_binary_average_precision,
     compute_binary_classification_metrics,
     compute_binary_confusion_matrix,
     compute_binary_roc_auc,
@@ -31,6 +33,13 @@ def test_compute_binary_roc_auc_returns_none_for_single_class() -> None:
     assert compute_binary_roc_auc(labels, scores) is None
 
 
+def test_compute_binary_average_precision_returns_expected_value() -> None:
+    labels = torch.tensor([0, 0, 1, 1])
+    scores = torch.tensor([0.1, 0.8, 0.4, 0.9])
+
+    assert compute_binary_average_precision(labels, scores) == pytest.approx(5 / 6)
+
+
 def test_compute_binary_classification_metrics() -> None:
     labels = torch.tensor([0, 0, 1, 1])
     predictions = torch.tensor([0, 1, 0, 1])
@@ -41,8 +50,12 @@ def test_compute_binary_classification_metrics() -> None:
     assert metrics.accuracy == pytest.approx(0.5)
     assert metrics.precision == pytest.approx(0.5)
     assert metrics.recall == pytest.approx(0.5)
+    assert metrics.specificity == pytest.approx(0.5)
+    assert metrics.balanced_accuracy == pytest.approx(0.5)
     assert metrics.f1 == pytest.approx(0.5)
+    assert metrics.f1_macro == pytest.approx(0.5)
     assert metrics.auc == pytest.approx(0.75)
+    assert metrics.average_precision == pytest.approx(5 / 6)
     assert metrics.true_negatives == 1
     assert metrics.false_positives == 1
     assert metrics.false_negatives == 1
@@ -63,4 +76,24 @@ def test_compute_binary_classification_metrics_rejects_shape_mismatch() -> None:
         compute_binary_classification_metrics(
             torch.tensor([0, 1]),
             torch.tensor([0]),
+        )
+
+
+def test_calibrate_binary_threshold_maximizes_balanced_accuracy() -> None:
+    labels = torch.tensor([0, 0, 1, 1])
+    scores = torch.tensor([0.1, 0.4, 0.35, 0.8])
+
+    calibration = calibrate_binary_threshold(labels, scores)
+
+    assert calibration.threshold == pytest.approx(0.4)
+    assert calibration.metric_name == "balanced_accuracy"
+    assert calibration.metric_value == pytest.approx(0.75)
+    assert calibration.num_samples == 4
+
+
+def test_calibrate_binary_threshold_requires_both_classes() -> None:
+    with pytest.raises(ValueError, match="requires both classes"):
+        calibrate_binary_threshold(
+            torch.tensor([1, 1]),
+            torch.tensor([0.2, 0.8]),
         )

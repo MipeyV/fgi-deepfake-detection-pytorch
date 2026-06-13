@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import json
+from collections import defaultdict
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Iterable
@@ -13,6 +14,8 @@ from torch import nn
 
 from src.evaluation.metrics import (
     BinaryClassificationMetrics,
+    ThresholdCalibrationResult,
+    calibrate_binary_threshold,
     compute_binary_classification_metrics,
 )
 
@@ -22,6 +25,8 @@ __all__ = [
     "EnsembleEvaluationResult",
     "EnsemblePredictionRecord",
     "PredictionRecord",
+    "VideoPredictionRecord",
+    "calibrate_threshold_from_predictions",
     "evaluate_audio_classifier",
     "evaluate_audio_video_ensemble",
     "evaluate_fgi_classifier",
@@ -30,6 +35,7 @@ __all__ = [
     "write_evaluation_outputs",
     "write_metrics_json",
     "write_predictions_csv",
+    "write_video_predictions_csv",
 ]
 
 
@@ -76,6 +82,24 @@ class AudioEvaluationResult:
 
     metrics: BinaryClassificationMetrics
     predictions: list[PredictionRecord]
+    video_metrics: BinaryClassificationMetrics | None
+    video_predictions: list[VideoPredictionRecord]
+    decision_threshold: float
+
+
+@dataclass(frozen=True)
+class VideoPredictionRecord:
+    """Prediction obtained by averaging all clip scores for one video."""
+
+    video_id: str
+    label: str
+    label_idx: int
+    pred_label: str
+    pred_idx: int
+    prob_real: float
+    prob_fake: float
+    num_clips: int
+    correct: bool
 
 
 @dataclass(frozen=True)
@@ -149,12 +173,108 @@ def _metadata_value(batch: dict, key: str, index: int) -> str:
     return str(values[index])
 
 
+def _aggregate_video_predictions(
+    predictions: list[PredictionRecord],
+    decision_threshold: float,
+) -> tuple[list[VideoPredictionRecord], BinaryClassificationMetrics | None]:
+    """Average clip fake probabilities and compute per-video metrics."""
+    if any(not prediction.video_id for prediction in predictions):
+        return [], None
+
+    grouped: dict[str, list[PredictionRecord]] = defaultdict(list)
+    for prediction in predictions:
+        grouped[prediction.video_id].append(prediction)
+
+    video_predictions: list[VideoPredictionRecord] = []
+    for video_id in sorted(grouped):
+        clips = grouped[video_id]
+        labels = {clip.label_idx for clip in clips}
+        if len(labels) != 1:
+            raise ValueError(f"Inconsistent labels for video_id={video_id}")
+
+        label_idx = labels.pop()
+        prob_fake = sum(clip.prob_fake for clip in clips) / len(clips)
+        pred_idx = int(prob_fake > decision_threshold)
+        video_predictions.append(
+            VideoPredictionRecord(
+                video_id=video_id,
+                label=_label_name(label_idx),
+                label_idx=label_idx,
+                pred_label=_label_name(pred_idx),
+                pred_idx=pred_idx,
+                prob_real=1.0 - prob_fake,
+                prob_fake=prob_fake,
+                num_clips=len(clips),
+                correct=label_idx == pred_idx,
+            )
+        )
+
+    labels_tensor = torch.tensor(
+        [prediction.label_idx for prediction in video_predictions]
+    )
+    scores_tensor = torch.tensor(
+        [prediction.prob_fake for prediction in video_predictions]
+    )
+    predicted_tensor = (scores_tensor > decision_threshold).long()
+    metrics = compute_binary_classification_metrics(
+        labels=labels_tensor,
+        predictions=predicted_tensor,
+        scores=scores_tensor,
+        decision_threshold=decision_threshold,
+    )
+    return video_predictions, metrics
+
+
+def _build_evaluation_result(
+    records: list[PredictionRecord],
+    decision_threshold: float,
+) -> AudioEvaluationResult:
+    if not 0.0 <= decision_threshold <= 1.0:
+        raise ValueError("decision_threshold must be in [0, 1]")
+
+    labels = torch.tensor([record.label_idx for record in records])
+    scores = torch.tensor([record.prob_fake for record in records])
+    predictions = (scores > decision_threshold).long()
+    metrics = compute_binary_classification_metrics(
+        labels=labels,
+        predictions=predictions,
+        scores=scores,
+        decision_threshold=decision_threshold,
+    )
+    video_predictions, video_metrics = _aggregate_video_predictions(
+        records,
+        decision_threshold,
+    )
+    return AudioEvaluationResult(
+        metrics=metrics,
+        predictions=records,
+        video_metrics=video_metrics,
+        video_predictions=video_predictions,
+        decision_threshold=decision_threshold,
+    )
+
+
+def calibrate_threshold_from_predictions(
+    predictions: list[PredictionRecord],
+    metric_name: str = "balanced_accuracy",
+) -> ThresholdCalibrationResult:
+    """Calibrate a threshold from predictions produced on validation data."""
+    if not predictions:
+        raise ValueError("At least one prediction is required for calibration")
+    return calibrate_binary_threshold(
+        labels=torch.tensor([prediction.label_idx for prediction in predictions]),
+        scores=torch.tensor([prediction.prob_fake for prediction in predictions]),
+        metric_name=metric_name,
+    )
+
+
 def evaluate_audio_classifier(
     model: nn.Module,
     feature_extractor: nn.Module,
     dataloader: Iterable[dict],
     device: torch.device,
     max_batches: int | None = None,
+    decision_threshold: float = 0.5,
 ) -> AudioEvaluationResult:
     """Evaluate an audio classifier and collect per-sample predictions.
 
@@ -192,7 +312,7 @@ def evaluate_audio_classifier(
             features = feature_extractor(audio)
             logits = model(features)
             probabilities = torch.softmax(logits, dim=1)
-            predictions = probabilities.argmax(dim=1)
+            predictions = (probabilities[:, 1] > decision_threshold).long()
 
             all_labels.append(labels.cpu())
             all_predictions.append(predictions.cpu())
@@ -222,16 +342,7 @@ def evaluate_audio_classifier(
     if not records:
         raise ValueError("No samples were evaluated")
 
-    labels_tensor = torch.cat(all_labels)
-    predictions_tensor = torch.cat(all_predictions)
-    prob_fake_tensor = torch.cat(all_prob_fake)
-    metrics = compute_binary_classification_metrics(
-        labels=labels_tensor,
-        predictions=predictions_tensor,
-        scores=prob_fake_tensor,
-    )
-
-    return AudioEvaluationResult(metrics=metrics, predictions=records)
+    return _build_evaluation_result(records, decision_threshold)
 
 
 def evaluate_video_classifier(
@@ -239,6 +350,7 @@ def evaluate_video_classifier(
     dataloader: Iterable[dict],
     device: torch.device,
     max_batches: int | None = None,
+    decision_threshold: float = 0.5,
 ) -> AudioEvaluationResult:
     """Evaluate a video classifier and collect per-sample predictions."""
     model.to(device)
@@ -259,7 +371,7 @@ def evaluate_video_classifier(
 
             logits = model(frames)
             probabilities = torch.softmax(logits, dim=1)
-            predictions = probabilities.argmax(dim=1)
+            predictions = (probabilities[:, 1] > decision_threshold).long()
 
             all_labels.append(labels.cpu())
             all_predictions.append(predictions.cpu())
@@ -289,16 +401,7 @@ def evaluate_video_classifier(
     if not records:
         raise ValueError("No samples were evaluated")
 
-    labels_tensor = torch.cat(all_labels)
-    predictions_tensor = torch.cat(all_predictions)
-    prob_fake_tensor = torch.cat(all_prob_fake)
-    metrics = compute_binary_classification_metrics(
-        labels=labels_tensor,
-        predictions=predictions_tensor,
-        scores=prob_fake_tensor,
-    )
-
-    return AudioEvaluationResult(metrics=metrics, predictions=records)
+    return _build_evaluation_result(records, decision_threshold)
 
 
 def evaluate_fgi_classifier(
@@ -306,6 +409,7 @@ def evaluate_fgi_classifier(
     dataloader: Iterable[dict],
     device: torch.device,
     max_batches: int | None = None,
+    decision_threshold: float = 0.5,
 ) -> AudioEvaluationResult:
     """Evaluate an FGI classifier and collect per-sample predictions."""
     model.to(device)
@@ -326,7 +430,7 @@ def evaluate_fgi_classifier(
             labels = batch["label"].to(device)
             logits = model(frames, audio).logits
             probabilities = torch.softmax(logits, dim=1)
-            predictions = probabilities.argmax(dim=1)
+            predictions = (probabilities[:, 1] > decision_threshold).long()
 
             all_labels.append(labels.cpu())
             all_predictions.append(predictions.cpu())
@@ -353,12 +457,7 @@ def evaluate_fgi_classifier(
     if not records:
         raise ValueError("No samples were evaluated")
 
-    metrics = compute_binary_classification_metrics(
-        labels=torch.cat(all_labels),
-        predictions=torch.cat(all_predictions),
-        scores=torch.cat(all_prob_fake),
-    )
-    return AudioEvaluationResult(metrics=metrics, predictions=records)
+    return _build_evaluation_result(records, decision_threshold)
 
 
 def evaluate_audio_video_ensemble(
@@ -507,6 +606,31 @@ def write_predictions_csv(predictions: list[PredictionRecord], path: str | Path)
             writer.writerow(asdict(prediction))
 
 
+def write_video_predictions_csv(
+    predictions: list[VideoPredictionRecord],
+    path: str | Path,
+) -> None:
+    """Write per-video prediction records to a CSV file."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fieldnames = [
+        "video_id",
+        "label",
+        "label_idx",
+        "pred_label",
+        "pred_idx",
+        "prob_real",
+        "prob_fake",
+        "num_clips",
+        "correct",
+    ]
+    with path.open("w", encoding="utf-8", newline="") as csv_file:
+        writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+        writer.writeheader()
+        for prediction in predictions:
+            writer.writerow(asdict(prediction))
+
+
 def write_metrics_json(
     metrics: BinaryClassificationMetrics,
     path: str | Path,
@@ -529,6 +653,8 @@ def write_evaluation_outputs(
     result: AudioEvaluationResult,
     predictions_path: str | Path,
     metrics_path: str | Path,
+    video_predictions_path: str | Path | None = None,
+    video_metrics_path: str | Path | None = None,
 ) -> None:
     """Write predictions and metrics for an evaluation result.
 
@@ -539,6 +665,13 @@ def write_evaluation_outputs(
     """
     write_predictions_csv(result.predictions, predictions_path)
     write_metrics_json(result.metrics, metrics_path)
+    if video_predictions_path is not None and result.video_predictions:
+        write_video_predictions_csv(
+            result.video_predictions,
+            video_predictions_path,
+        )
+    if video_metrics_path is not None and result.video_metrics is not None:
+        write_metrics_json(result.video_metrics, video_metrics_path)
 
 
 def write_ensemble_evaluation_outputs(

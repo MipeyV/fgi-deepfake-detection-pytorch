@@ -156,6 +156,7 @@ Experiment outputs are stored in `runs/<experiment>/<run-id>/`:
 - checkpoints (`best.pt`, `last.pt`)
 - training and evaluation metrics
 - per-clip predictions
+- per-video predictions obtained by averaging clip probabilities
 - SVG plots and confusion matrices
 
 Each run is organized in a separate folder for reproducibility.
@@ -354,7 +355,22 @@ python3 main.py eval \
 
 Training uses synchronized face crops and raw audio, balanced cross-entropy,
 validation-based early stopping, resumable checkpoints, standard metric plots,
-and optional automatic test evaluation. Submit the cluster job with:
+and optional automatic test evaluation. The FGI configuration calibrates the
+fake-class threshold on the validation split by maximizing balanced accuracy,
+then freezes that threshold for test evaluation. Reports include balanced
+accuracy, specificity, macro F1, ROC AUC, average precision, and both clip- and
+video-level metrics.
+
+The configured threshold can be overridden for an evaluation:
+
+```bash
+python3 main.py eval \
+  --config configs/fgi_inspired.yaml \
+  --checkpoint runs/fgi-inspired/<run-id>/checkpoints/best.pt \
+  --decision-threshold 0.75
+```
+
+Submit the cluster job with:
 
 ```bash
 sbatch jobs/train_fgi.sbatch
