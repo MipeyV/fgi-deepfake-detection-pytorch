@@ -460,6 +460,66 @@ def evaluate_fgi_classifier(
     return _build_evaluation_result(records, decision_threshold)
 
 
+def evaluate_fgi_classifier(
+    model: nn.Module,
+    dataloader: Iterable[dict],
+    device: torch.device,
+    max_batches: int | None = None,
+) -> AudioEvaluationResult:
+    """Evaluate an FGI classifier and collect per-sample predictions."""
+    model.to(device)
+    model.eval()
+
+    all_labels: list[torch.Tensor] = []
+    all_predictions: list[torch.Tensor] = []
+    all_prob_fake: list[torch.Tensor] = []
+    records: list[PredictionRecord] = []
+
+    with torch.no_grad():
+        for batch_index, batch in enumerate(dataloader):
+            if max_batches is not None and batch_index >= max_batches:
+                break
+
+            frames = batch["frames"].to(device)
+            audio = batch["audio"].to(device)
+            labels = batch["label"].to(device)
+            logits = model(frames, audio).logits
+            probabilities = torch.softmax(logits, dim=1)
+            predictions = probabilities.argmax(dim=1)
+
+            all_labels.append(labels.cpu())
+            all_predictions.append(predictions.cpu())
+            all_prob_fake.append(probabilities[:, 1].cpu())
+
+            for item_index in range(labels.size(0)):
+                label_idx = int(labels[item_index].item())
+                pred_idx = int(predictions[item_index].item())
+                records.append(
+                    PredictionRecord(
+                        video_id=_metadata_value(batch, "video_id", item_index),
+                        clip_id=_metadata_value(batch, "clip_id", item_index),
+                        clip_path=_metadata_value(batch, "clip_path", item_index),
+                        label=_label_name(label_idx),
+                        label_idx=label_idx,
+                        pred_label=_label_name(pred_idx),
+                        pred_idx=pred_idx,
+                        prob_real=float(probabilities[item_index, 0].item()),
+                        prob_fake=float(probabilities[item_index, 1].item()),
+                        correct=label_idx == pred_idx,
+                    )
+                )
+
+    if not records:
+        raise ValueError("No samples were evaluated")
+
+    metrics = compute_binary_classification_metrics(
+        labels=torch.cat(all_labels),
+        predictions=torch.cat(all_predictions),
+        scores=torch.cat(all_prob_fake),
+    )
+    return AudioEvaluationResult(metrics=metrics, predictions=records)
+
+
 def evaluate_audio_video_ensemble(
     audio_model: nn.Module,
     video_model: nn.Module,

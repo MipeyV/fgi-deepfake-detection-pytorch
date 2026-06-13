@@ -1052,6 +1052,187 @@ def train_fgi_classifier(args: argparse.Namespace) -> None:
         _write_test_evaluation(result, run_context, calibration)
 
 
+def train_fgi_classifier(args: argparse.Namespace) -> None:
+    """Train the synchronized audio-video FGI classifier."""
+    config = load_config(args.config)
+    validate_fgi_multimodal_config(config)
+
+    run_context = create_run_context(
+        config=config,
+        config_path=args.config,
+        runs_root=args.runs_root,
+        run_id=args.run_id,
+    )
+    training_config = config["training"]
+    device = resolve_device(args.device or training_config["device"])
+    epochs = args.epochs or training_config["epochs"]
+    batch_size = args.batch_size or training_config["batch_size"]
+    pipeline = build_fgi_input_pipeline(config)
+
+    train_loader = pipeline.create_dataloader(
+        manifest_path=config["data"]["train_manifest"],
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=training_config["num_workers"],
+    )
+    val_manifest_path = Path(config["data"]["val_manifest"])
+    val_loader = None
+    if val_manifest_path.is_file():
+        val_loader = pipeline.create_dataloader(
+            manifest_path=val_manifest_path,
+            batch_size=config["validation"]["batch_size"],
+            shuffle=False,
+            num_workers=training_config["num_workers"],
+        )
+
+    model = build_fgi_model(config["model"])
+    optimizer = build_optimizer(model, training_config["optimizer"])
+    criterion = build_classification_criterion(
+        loss_config=training_config["loss"],
+        train_manifest_path=config["data"]["train_manifest"],
+        label_mapping=config["data"]["label_mapping"],
+        device=device,
+    )
+    if criterion.weight is not None:
+        print(f"Class weights: {criterion.weight.detach().cpu().tolist()}")
+
+    start_epoch, history, resumed_metric_name, best_metric_value = (
+        _restore_training_state(
+            model,
+            optimizer,
+            getattr(args, "resume", None),
+            run_context,
+        )
+    )
+    metrics_path = run_context.metrics_dir / "train_metrics.json"
+    if history:
+        write_json(metrics_path, history)
+
+    checkpointing_config = config["checkpointing"]
+    save_last = checkpointing_config.get("save_last", True)
+    save_best = checkpointing_config.get("save_best", True)
+    best_metric_name = resumed_metric_name or config["validation"].get(
+        "metric_for_best_checkpoint",
+        "val_loss" if val_loader is not None else "loss",
+    )
+    if val_loader is None and best_metric_name.startswith("val_"):
+        best_metric_name = "loss"
+    early_stopping = build_early_stopping_state(
+        training_config,
+        best_metric_name,
+    )
+
+    for epoch in range(start_epoch + 1, epochs + 1):
+        metrics = train_fgi_one_epoch(
+            model=model,
+            dataloader=train_loader,
+            optimizer=optimizer,
+            criterion=criterion,
+            device=device,
+            max_batches=args.max_batches,
+        )
+        epoch_metrics = {"epoch": epoch, **asdict(metrics)}
+
+        if val_loader is not None:
+            val_metrics = evaluate_fgi_model(
+                model=model,
+                dataloader=val_loader,
+                criterion=criterion,
+                device=device,
+                max_batches=args.max_batches,
+            )
+            epoch_metrics.update(
+                {
+                    "val_loss": val_metrics.loss,
+                    "val_accuracy": val_metrics.accuracy,
+                    "val_num_samples": val_metrics.num_samples,
+                    "val_num_batches": val_metrics.num_batches,
+                }
+            )
+
+        history.append(epoch_metrics)
+        write_json(metrics_path, history)
+        print(
+            "epoch "
+            f"{epoch}/{epochs} "
+            f"loss={metrics.loss:.4f} "
+            f"accuracy={metrics.accuracy:.4f} "
+            f"samples={metrics.num_samples}"
+        )
+
+        metric_name = best_metric_name
+        if metric_name not in epoch_metrics:
+            metric_name = "val_loss" if "val_loss" in epoch_metrics else "loss"
+        current_metric_value = float(epoch_metrics[metric_name])
+        if save_best and checkpoint_metric_is_better(
+            current_metric_value,
+            best_metric_value,
+            metric_name,
+        ):
+            best_metric_name = metric_name
+            best_metric_value = current_metric_value
+            save_training_checkpoint(
+                checkpoint_path=run_context.checkpoints_dir / "best.pt",
+                model=model,
+                optimizer=optimizer,
+                epoch=epoch,
+                metrics=epoch_metrics,
+                config=config,
+                best_metric_name=best_metric_name,
+                best_metric_value=best_metric_value,
+            )
+
+        should_stop = False
+        if early_stopping is not None and early_stopping.update(epoch_metrics):
+            epoch_metrics["early_stopped"] = True
+            print(
+                "early stopping triggered "
+                f"after {early_stopping.bad_epochs} non-improving epochs "
+                f"on {early_stopping.metric_name}"
+            )
+            should_stop = True
+
+        if save_last:
+            save_training_checkpoint(
+                checkpoint_path=run_context.checkpoints_dir / "last.pt",
+                model=model,
+                optimizer=optimizer,
+                epoch=epoch,
+                metrics=epoch_metrics,
+                config=config,
+                best_metric_name=best_metric_name,
+                best_metric_value=best_metric_value,
+            )
+        if should_stop:
+            break
+
+    if not history:
+        raise ValueError(
+            f"No epochs to train: checkpoint epoch {start_epoch}, target {epochs}"
+        )
+    write_json(metrics_path, history)
+    _write_training_plots(metrics_path, run_context.plots_dir)
+    _print_training_outputs(run_context.run_dir, metrics_path, run_context.plots_dir)
+
+    if config["evaluation"].get("auto_after_training", False):
+        test_loader = pipeline.create_dataloader(
+            manifest_path=config["data"]["test_manifest"],
+            batch_size=config["evaluation"]["batch_size"],
+            shuffle=False,
+            num_workers=training_config["num_workers"],
+        )
+        checkpoint_path = run_context.checkpoints_dir / "best.pt"
+        if checkpoint_path.is_file():
+            load_model_checkpoint(model, checkpoint_path)
+        result = evaluate_fgi_classifier(
+            model=model,
+            dataloader=test_loader,
+            device=device,
+            max_batches=args.max_batches,
+        )
+        _write_test_evaluation(result, run_context)
+
+
 def evaluate_audio_baseline(args: argparse.Namespace) -> None:
     """Evaluate the baseline audio model from command-line arguments.
 
@@ -1313,6 +1494,59 @@ def evaluate_fgi_classifier_run(args: argparse.Namespace) -> None:
         f"balanced_accuracy={result.metrics.balanced_accuracy:.4f} "
         f"f1={result.metrics.f1:.4f} "
         f"threshold={result.decision_threshold:.4f} "
+        f"samples={result.metrics.num_samples}"
+    )
+    print(f"Run directory: {run_context.run_dir}")
+    print(f"Evaluation metrics: {metrics_path}")
+    print(f"Predictions: {predictions_path}")
+    print(f"Confusion matrix: {confusion_matrix_path}")
+
+
+def evaluate_fgi_classifier_run(args: argparse.Namespace) -> None:
+    """Evaluate an FGI checkpoint and write standard run artifacts."""
+    config = load_config(args.config)
+    validate_fgi_multimodal_config(config)
+    run_context = create_run_context(
+        config=config,
+        config_path=args.config,
+        runs_root=args.runs_root,
+        run_id=args.run_id,
+    )
+
+    manifest_path = config["data"][f"{args.split}_manifest"]
+    device = resolve_device(args.device or config["training"]["device"])
+    batch_size = args.batch_size or config["evaluation"]["batch_size"]
+    pipeline = build_fgi_input_pipeline(config)
+    dataloader = pipeline.create_dataloader(
+        manifest_path=manifest_path,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=config["training"]["num_workers"],
+    )
+    model = build_fgi_model(config["model"])
+    if args.checkpoint is not None:
+        load_model_checkpoint(model, args.checkpoint)
+
+    result = evaluate_fgi_classifier(
+        model=model,
+        dataloader=dataloader,
+        device=device,
+        max_batches=args.max_batches,
+    )
+    predictions_path = run_context.predictions_dir / (
+        f"{args.split}_predictions.csv"
+    )
+    metrics_path = run_context.metrics_dir / f"{args.split}_metrics.json"
+    confusion_matrix_path = run_context.plots_dir / (
+        f"{args.split}_confusion_matrix.svg"
+    )
+    write_evaluation_outputs(result, predictions_path, metrics_path)
+    plot_confusion_matrix_svg(metrics_path, confusion_matrix_path)
+
+    print(
+        f"{args.split} "
+        f"accuracy={result.metrics.accuracy:.4f} "
+        f"f1={result.metrics.f1:.4f} "
         f"samples={result.metrics.num_samples}"
     )
     print(f"Run directory: {run_context.run_dir}")
