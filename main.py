@@ -36,6 +36,8 @@ from src.evaluation.metrics import ThresholdCalibrationResult
 from src.evaluation.plots import (
     plot_confusion_matrix_svg,
     plot_metric_history_svg,
+    plot_roc_comparison_svg,
+    plot_roc_curve_svg,
     plot_training_history_svg,
 )
 from src.models.audio_models import build_audio_model
@@ -296,6 +298,8 @@ def _write_test_evaluation(
     )
     video_metrics_path = run_context.metrics_dir / "test_video_metrics.json"
     confusion_matrix_path = run_context.plots_dir / "test_confusion_matrix.svg"
+    roc_curve_path = run_context.plots_dir / "test_roc_curve.svg"
+    video_roc_curve_path = run_context.plots_dir / "test_video_roc_curve.svg"
     write_evaluation_outputs(
         result,
         predictions_path,
@@ -309,6 +313,14 @@ def _write_test_evaluation(
             asdict(calibration),
         )
     plot_confusion_matrix_svg(metrics_path, confusion_matrix_path)
+    if result.metrics.auc is not None:
+        plot_roc_curve_svg(predictions_path, roc_curve_path, title="Clip ROC Curve")
+    if result.video_metrics is not None and result.video_metrics.auc is not None:
+        plot_roc_curve_svg(
+            video_predictions_path,
+            video_roc_curve_path,
+            title="Video ROC Curve",
+        )
     print(
         "test "
         f"accuracy={result.metrics.accuracy:.4f} "
@@ -323,6 +335,10 @@ def _write_test_evaluation(
         print(f"Test video metrics: {video_metrics_path}")
         print(f"Test video predictions: {video_predictions_path}")
     print(f"Test confusion matrix: {confusion_matrix_path}")
+    if roc_curve_path.is_file():
+        print(f"Test ROC curve: {roc_curve_path}")
+    if video_roc_curve_path.is_file():
+        print(f"Test video ROC curve: {video_roc_curve_path}")
 
 
 def _configured_decision_threshold(
@@ -380,6 +396,8 @@ def _write_split_evaluation(
     )
     video_metrics_path = run_context.metrics_dir / f"{split}_video_metrics.json"
     confusion_matrix_path = run_context.plots_dir / f"{split}_confusion_matrix.svg"
+    roc_curve_path = run_context.plots_dir / f"{split}_roc_curve.svg"
+    video_roc_curve_path = run_context.plots_dir / f"{split}_video_roc_curve.svg"
     write_evaluation_outputs(
         result,
         predictions_path,
@@ -393,6 +411,14 @@ def _write_split_evaluation(
             asdict(calibration),
         )
     plot_confusion_matrix_svg(metrics_path, confusion_matrix_path)
+    if result.metrics.auc is not None:
+        plot_roc_curve_svg(predictions_path, roc_curve_path, title="Clip ROC Curve")
+    if result.video_metrics is not None and result.video_metrics.auc is not None:
+        plot_roc_curve_svg(
+            video_predictions_path,
+            video_roc_curve_path,
+            title="Video ROC Curve",
+        )
     return predictions_path, metrics_path, confusion_matrix_path
 
 
@@ -1052,7 +1078,7 @@ def train_fgi_classifier(args: argparse.Namespace) -> None:
         _write_test_evaluation(result, run_context, calibration)
 
 
-def train_fgi_classifier(args: argparse.Namespace) -> None:
+def _obsolete_train_fgi_classifier(args: argparse.Namespace) -> None:
     """Train the synchronized audio-video FGI classifier."""
     config = load_config(args.config)
     validate_fgi_multimodal_config(config)
@@ -1502,7 +1528,7 @@ def evaluate_fgi_classifier_run(args: argparse.Namespace) -> None:
     print(f"Confusion matrix: {confusion_matrix_path}")
 
 
-def evaluate_fgi_classifier_run(args: argparse.Namespace) -> None:
+def _obsolete_evaluate_fgi_classifier_run(args: argparse.Namespace) -> None:
     """Evaluate an FGI checkpoint and write standard run artifacts."""
     config = load_config(args.config)
     validate_fgi_multimodal_config(config)
@@ -1616,6 +1642,9 @@ def evaluate_audio_video_baseline(args: argparse.Namespace) -> None:
     confusion_matrix_path = (
         run_context.plots_dir / f"{split}_ensemble_confusion_matrix.svg"
     )
+    roc_comparison_path = (
+        run_context.plots_dir / f"{split}_audio_video_ensemble_roc.svg"
+    )
     write_ensemble_evaluation_outputs(
         result,
         predictions_path,
@@ -1623,6 +1652,16 @@ def evaluate_audio_video_baseline(args: argparse.Namespace) -> None:
         comparison_path,
     )
     plot_confusion_matrix_svg(metrics_path, confusion_matrix_path)
+    if result.ensemble_metrics.auc is not None:
+        plot_roc_comparison_svg(
+            {
+                "Audio baseline": (predictions_path, "audio_prob_fake"),
+                "Video baseline": (predictions_path, "video_prob_fake"),
+                "Audio + video": (predictions_path, "ensemble_prob_fake"),
+            },
+            roc_comparison_path,
+            title="Audio, Video and Ensemble ROC",
+        )
 
     print(
         f"{split} agreement={result.agreement_rate:.4f} "
@@ -1637,6 +1676,8 @@ def evaluate_audio_video_baseline(args: argparse.Namespace) -> None:
     print(f"Comparison metrics: {comparison_path}")
     print(f"Predictions: {predictions_path}")
     print(f"Ensemble confusion matrix: {confusion_matrix_path}")
+    if roc_comparison_path.is_file():
+        print(f"ROC comparison: {roc_comparison_path}")
 
 
 def main() -> None:

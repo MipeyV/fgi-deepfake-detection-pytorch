@@ -7,6 +7,8 @@ from src.evaluation.plots import (
     load_training_history,
     plot_confusion_matrix_svg,
     plot_metric_history_svg,
+    plot_roc_comparison_svg,
+    plot_roc_curve_svg,
     plot_training_history_svg,
 )
 
@@ -174,3 +176,70 @@ def test_plot_confusion_matrix_svg_rejects_missing_keys(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="missing keys"):
         plot_confusion_matrix_svg(metrics_path, output_path)
+
+
+def test_plot_roc_curve_svg_writes_auc(tmp_path: Path) -> None:
+    predictions_path = tmp_path / "predictions.csv"
+    output_path = tmp_path / "plots" / "roc_curve.svg"
+    predictions_path.write_text(
+        "\n".join(
+            [
+                "label_idx,prob_fake",
+                "0,0.1",
+                "0,0.4",
+                "1,0.35",
+                "1,0.8",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    plot_roc_curve_svg(predictions_path, output_path)
+
+    svg = output_path.read_text(encoding="utf-8")
+    assert svg.startswith("<svg")
+    assert "ROC Curve" in svg
+    assert "AUC = 0.7500" in svg
+    assert "False positive rate" in svg
+
+
+def test_plot_roc_curve_svg_requires_both_classes(tmp_path: Path) -> None:
+    predictions_path = tmp_path / "predictions.csv"
+    predictions_path.write_text(
+        "label_idx,prob_fake\n1,0.8\n1,0.9\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="requires both classes"):
+        plot_roc_curve_svg(predictions_path, tmp_path / "roc.svg")
+
+
+def test_plot_roc_comparison_svg_writes_all_series(tmp_path: Path) -> None:
+    predictions_path = tmp_path / "ensemble.csv"
+    output_path = tmp_path / "plots" / "comparison.svg"
+    predictions_path.write_text(
+        "\n".join(
+            [
+                "label_idx,audio_prob_fake,video_prob_fake,ensemble_prob_fake",
+                "0,0.1,0.2,0.15",
+                "0,0.4,0.3,0.35",
+                "1,0.35,0.7,0.525",
+                "1,0.8,0.9,0.85",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    plot_roc_comparison_svg(
+        {
+            "Audio": (predictions_path, "audio_prob_fake"),
+            "Video": (predictions_path, "video_prob_fake"),
+            "Ensemble": (predictions_path, "ensemble_prob_fake"),
+        },
+        output_path,
+    )
+
+    svg = output_path.read_text(encoding="utf-8")
+    assert "Audio: AUC = 0.7500" in svg
+    assert "Video: AUC = 1.0000" in svg
+    assert "Ensemble: AUC = 1.0000" in svg

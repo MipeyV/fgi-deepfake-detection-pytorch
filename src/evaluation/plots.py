@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import csv
 import json
 import math
 from pathlib import Path
@@ -11,6 +12,8 @@ __all__ = [
     "load_training_history",
     "plot_confusion_matrix_svg",
     "plot_metric_history_svg",
+    "plot_roc_comparison_svg",
+    "plot_roc_curve_svg",
     "plot_training_history_svg",
 ]
 
@@ -460,5 +463,239 @@ def plot_confusion_matrix_svg(
 </svg>
 """
 
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(svg, encoding="utf-8")
+
+
+def plot_roc_curve_svg(
+    predictions_path: str | Path,
+    output_path: str | Path,
+    title: str = "ROC Curve",
+    width: int = 560,
+    height: int = 500,
+) -> None:
+    """Create an SVG ROC curve from prediction probabilities."""
+    predictions_path = Path(predictions_path)
+    output_path = Path(output_path)
+    if not predictions_path.is_file():
+        raise FileNotFoundError(
+            f"Predictions file does not exist: {predictions_path}"
+        )
+
+    labels: list[int] = []
+    scores: list[float] = []
+    with predictions_path.open("r", encoding="utf-8", newline="") as csv_file:
+        reader = csv.DictReader(csv_file)
+        required_columns = {"label_idx", "prob_fake"}
+        missing_columns = required_columns - set(reader.fieldnames or [])
+        if missing_columns:
+            raise ValueError(
+                "Predictions file is missing columns: "
+                f"{sorted(missing_columns)}"
+            )
+        for row in reader:
+            labels.append(int(row["label_idx"]))
+            scores.append(float(row["prob_fake"]))
+
+    num_positive = sum(label == 1 for label in labels)
+    num_negative = sum(label == 0 for label in labels)
+    if num_positive == 0 or num_negative == 0:
+        raise ValueError("ROC curve requires both classes")
+
+    ranked = sorted(zip(scores, labels, strict=True), reverse=True)
+    points = [(0.0, 0.0)]
+    true_positives = 0
+    false_positives = 0
+    index = 0
+    while index < len(ranked):
+        score = ranked[index][0]
+        while index < len(ranked) and ranked[index][0] == score:
+            if ranked[index][1] == 1:
+                true_positives += 1
+            else:
+                false_positives += 1
+            index += 1
+        points.append(
+            (
+                false_positives / num_negative,
+                true_positives / num_positive,
+            )
+        )
+
+    auc = sum(
+        (right[0] - left[0]) * (right[1] + left[1]) / 2
+        for left, right in zip(points, points[1:])
+    )
+    padding = 70
+    drawable_width = width - 2 * padding
+    drawable_height = height - 2 * padding
+    svg_points = [
+        (
+            padding + false_positive_rate * drawable_width,
+            height - padding - true_positive_rate * drawable_height,
+        )
+        for false_positive_rate, true_positive_rate in points
+    ]
+    grid = []
+    for tick in [0.0, 0.25, 0.5, 0.75, 1.0]:
+        x = padding + tick * drawable_width
+        y = height - padding - tick * drawable_height
+        grid.append(
+            f'  <line x1="{x:.2f}" y1="{padding}" x2="{x:.2f}" '
+            f'y2="{height - padding}" stroke="#eeeeee"/>\n'
+            f'  <line x1="{padding}" y1="{y:.2f}" x2="{width - padding}" '
+            f'y2="{y:.2f}" stroke="#eeeeee"/>\n'
+            f'  <text x="{x:.2f}" y="{height - padding + 22}" '
+            f'text-anchor="middle" font-family="sans-serif" '
+            f'font-size="11">{tick:.2f}</text>\n'
+            f'  <text x="{padding - 10}" y="{y + 4:.2f}" text-anchor="end" '
+            f'font-family="sans-serif" font-size="11">{tick:.2f}</text>'
+        )
+
+    svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}">
+  <rect width="100%" height="100%" fill="white"/>
+  <text x="{width / 2:.0f}" y="30" text-anchor="middle" font-family="sans-serif" font-size="20">{title}</text>
+{chr(10).join(grid)}
+  <line x1="{padding}" y1="{height - padding}" x2="{width - padding}" y2="{padding}" stroke="#999999" stroke-width="2" stroke-dasharray="7 6"/>
+  <polyline points="{_polyline(svg_points)}" fill="none" stroke="#1f77b4" stroke-width="3"/>
+  <line x1="{padding}" y1="{padding}" x2="{padding}" y2="{height - padding}" stroke="#333333"/>
+  <line x1="{padding}" y1="{height - padding}" x2="{width - padding}" y2="{height - padding}" stroke="#333333"/>
+  <text x="{width / 2:.0f}" y="{height - 18}" text-anchor="middle" font-family="sans-serif" font-size="13">False positive rate</text>
+  <text x="20" y="{height / 2:.0f}" text-anchor="middle" font-family="sans-serif" font-size="13" transform="rotate(-90 20 {height / 2:.0f})">True positive rate</text>
+  <text x="{width - padding}" y="{padding - 18}" text-anchor="end" font-family="sans-serif" font-size="13" fill="#1f77b4">AUC = {auc:.4f}</text>
+</svg>
+"""
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(svg, encoding="utf-8")
+
+
+def _load_roc_points(
+    predictions_path: str | Path,
+    score_column: str,
+) -> tuple[list[tuple[float, float]], float]:
+    """Load binary labels and return ROC points with trapezoidal AUC."""
+    predictions_path = Path(predictions_path)
+    with predictions_path.open("r", encoding="utf-8", newline="") as csv_file:
+        reader = csv.DictReader(csv_file)
+        required_columns = {"label_idx", score_column}
+        missing_columns = required_columns - set(reader.fieldnames or [])
+        if missing_columns:
+            raise ValueError(
+                "Predictions file is missing columns: "
+                f"{sorted(missing_columns)}"
+            )
+        rows = [
+            (float(row[score_column]), int(row["label_idx"]))
+            for row in reader
+        ]
+
+    num_positive = sum(label == 1 for _, label in rows)
+    num_negative = sum(label == 0 for _, label in rows)
+    if num_positive == 0 or num_negative == 0:
+        raise ValueError("ROC curve requires both classes")
+
+    ranked = sorted(rows, reverse=True)
+    points = [(0.0, 0.0)]
+    true_positives = 0
+    false_positives = 0
+    index = 0
+    while index < len(ranked):
+        score = ranked[index][0]
+        while index < len(ranked) and ranked[index][0] == score:
+            if ranked[index][1] == 1:
+                true_positives += 1
+            else:
+                false_positives += 1
+            index += 1
+        points.append(
+            (
+                false_positives / num_negative,
+                true_positives / num_positive,
+            )
+        )
+
+    auc = sum(
+        (right[0] - left[0]) * (right[1] + left[1]) / 2
+        for left, right in zip(points, points[1:])
+    )
+    return points, auc
+
+
+def plot_roc_comparison_svg(
+    series: dict[str, tuple[str | Path, str]],
+    output_path: str | Path,
+    title: str = "ROC Curve Comparison",
+    width: int = 620,
+    height: int = 520,
+) -> None:
+    """Plot multiple ROC series from prediction CSV files."""
+    if not series:
+        raise ValueError("series must contain at least one ROC curve")
+
+    padding = 70
+    drawable_width = width - 2 * padding
+    drawable_height = height - 2 * padding
+    curves = []
+    for series_index, (label, (path, score_column)) in enumerate(series.items()):
+        points, auc = _load_roc_points(path, score_column)
+        svg_points = [
+            (
+                padding + false_positive_rate * drawable_width,
+                height - padding - true_positive_rate * drawable_height,
+            )
+            for false_positive_rate, true_positive_rate in points
+        ]
+        curves.append(
+            (
+                label,
+                auc,
+                SERIES_COLORS[series_index % len(SERIES_COLORS)],
+                svg_points,
+            )
+        )
+
+    grid = []
+    for tick in [0.0, 0.25, 0.5, 0.75, 1.0]:
+        x = padding + tick * drawable_width
+        y = height - padding - tick * drawable_height
+        grid.append(
+            f'  <line x1="{x:.2f}" y1="{padding}" x2="{x:.2f}" '
+            f'y2="{height - padding}" stroke="#eeeeee"/>\n'
+            f'  <line x1="{padding}" y1="{y:.2f}" x2="{width - padding}" '
+            f'y2="{y:.2f}" stroke="#eeeeee"/>\n'
+            f'  <text x="{x:.2f}" y="{height - padding + 22}" '
+            f'text-anchor="middle" font-family="sans-serif" '
+            f'font-size="11">{tick:.2f}</text>\n'
+            f'  <text x="{padding - 10}" y="{y + 4:.2f}" text-anchor="end" '
+            f'font-family="sans-serif" font-size="11">{tick:.2f}</text>'
+        )
+
+    curve_svg = []
+    legend_svg = []
+    for index, (label, auc, color, points) in enumerate(curves):
+        curve_svg.append(
+            f'  <polyline points="{_polyline(points)}" fill="none" '
+            f'stroke="{color}" stroke-width="3"/>'
+        )
+        legend_svg.append(
+            f'  <text x="{width - padding}" y="{padding + 20 + index * 20}" '
+            f'text-anchor="end" font-family="sans-serif" font-size="13" '
+            f'fill="{color}">{label}: AUC = {auc:.4f}</text>'
+        )
+
+    svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}">
+  <rect width="100%" height="100%" fill="white"/>
+  <text x="{width / 2:.0f}" y="30" text-anchor="middle" font-family="sans-serif" font-size="20">{title}</text>
+{chr(10).join(grid)}
+  <line x1="{padding}" y1="{height - padding}" x2="{width - padding}" y2="{padding}" stroke="#999999" stroke-width="2" stroke-dasharray="7 6"/>
+{chr(10).join(curve_svg)}
+  <line x1="{padding}" y1="{padding}" x2="{padding}" y2="{height - padding}" stroke="#333333"/>
+  <line x1="{padding}" y1="{height - padding}" x2="{width - padding}" y2="{height - padding}" stroke="#333333"/>
+  <text x="{width / 2:.0f}" y="{height - 18}" text-anchor="middle" font-family="sans-serif" font-size="13">False positive rate</text>
+  <text x="20" y="{height / 2:.0f}" text-anchor="middle" font-family="sans-serif" font-size="13" transform="rotate(-90 20 {height / 2:.0f})">True positive rate</text>
+{chr(10).join(legend_svg)}
+</svg>
+"""
+    output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(svg, encoding="utf-8")

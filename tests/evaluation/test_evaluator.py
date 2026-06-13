@@ -179,6 +179,19 @@ def test_evaluate_fgi_classifier_returns_metrics_and_predictions() -> None:
     assert len(result.video_predictions) == 2
 
 
+def test_evaluate_fgi_classifier_applies_custom_threshold() -> None:
+    result = evaluate_fgi_classifier(
+        model=MeanFGIScoreModel(),
+        dataloader=make_fgi_eval_batches(),
+        device=torch.device("cpu"),
+        decision_threshold=0.1,
+    )
+
+    assert result.metrics.decision_threshold == 0.1
+    assert result.predictions[0].pred_label == "fake"
+    assert result.metrics.accuracy == 0.5
+
+
 def test_evaluate_video_classifier_applies_custom_threshold() -> None:
     result = evaluate_video_classifier(
         model=MeanFrameScoreModel(),
