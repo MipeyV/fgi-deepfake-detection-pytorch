@@ -1,7 +1,6 @@
 # Strict synchronized input contract for the FGI-inspired model.
 #
-# The data pipeline and complete forward model are implemented. Training and
-# evaluation integration in main.py remain pending.
+# The data pipeline, model, training, and evaluation entrypoints are implemented.
 
 experiment:
   name: fgi_inspired
@@ -59,15 +58,35 @@ training:
     name: adam
     learning_rate: 0.0001
     weight_decay: 0.00001
+  loss:
+    name: cross_entropy
+    class_weights: balanced
+  early_stopping:
+    enabled: true
+    patience: 8
+    min_delta: 0.001
 
 validation:
   batch_size: 8
+  interval_epochs: 1
+  metric_for_best_checkpoint: val_loss
 
 evaluation:
-  batch_size: 1
+  auto_after_training: true
+  batch_size: 8
   metrics:
     - accuracy
     - precision
     - recall
     - f1
     - auc
+
+checkpointing:
+  save_dir: checkpoints
+  save_best: true
+  save_last: true
+
+logging:
+  log_dir: logs
+  level: info
+  tensorboard: false

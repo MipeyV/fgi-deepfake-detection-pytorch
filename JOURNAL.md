@@ -1123,3 +1123,82 @@ Le forward complet existe désormais. Les commandes génériques `train` et
 - Smoke réel validé du manifest aux logits sur CPU.
 - Sorties observées : logits `(1, 2)`, incohérence `(1, 28, 28)` et attention
   `(1, 28, 28)`.
+
+---
+
+## 12 juin 2026 - Entraînement et évaluation FGI
+
+### Entraînement
+- Ajout d'une boucle multimodale consommant simultanément les frames de visage
+  et l'audio brut.
+- Support de la cross-entropy pondérée, de la validation, de l'early stopping
+  et de la limite `--max-batches`.
+- Sauvegarde des checkpoints `best.pt` et `last.pt`.
+- Reprise d'entraînement avec `--resume`.
+
+### Évaluation
+- Support de `fgi_inspired` dans la commande générique `eval`.
+- Export des probabilités réel/fake et des prédictions par clip.
+- Calcul des métriques binaires et génération de la matrice de confusion.
+- Évaluation automatique du meilleur checkpoint après entraînement.
+
+### Cluster
+Le job `jobs/train_fgi.sbatch` expose les variables `EPOCHS`, `BATCH_SIZE`,
+`MAX_BATCHES`, `RUN_ID`, `RESUME` et `DEVICE`.
+
+### Validation
+Un test d'intégration entraîne un petit modèle FGI, écrit les artefacts du run,
+recharge le meilleur checkpoint et exécute une évaluation séparée.
+
+Un smoke CPU sur le clip YuNet réel a également validé un backward complet,
+la mise à jour de l'optimizer, l'écriture du checkpoint et les courbes. Ce
+smoke a permis de corriger la sélection de la métrique d'early stopping
+lorsqu'aucun manifest de validation n'est disponible.
+
+### Résultat
+- Suite complète : 141 tests passants.
+- Entraînement et évaluation FGI disponibles depuis `main.py`.
+- Job Slurm FGI prêt pour un smoke GPU puis l'expérience complète.
+
+---
+
+## 13 juin 2026 - Premier résultat complet FGI
+
+### Run
+Le run `20260612-164807_fgi-inspired_5932f5e` a été entraîné avec la
+configuration FGI complète. L'early stopping s'est déclenché à l'époque 41.
+Le meilleur checkpoint selon la loss de validation est celui de l'époque 33 :
+
+- accuracy train : `0.9449` ;
+- accuracy validation : `0.8593` ;
+- loss validation : `0.3160`.
+
+### Test
+L'évaluation du meilleur checkpoint sur 436 clips donne :
+
+- AUC ROC : `0.8254` ;
+- accuracy : `0.8372` ;
+- F1 : `0.9067` ;
+- precision : `0.9200` ;
+- recall : `0.8938`.
+
+La matrice de confusion contient 20 vrais négatifs, 30 faux positifs,
+41 faux négatifs et 345 vrais positifs.
+
+### Comparaison
+L'AUC progresse nettement par rapport aux expériences vidéo précédentes :
+
+- baseline vidéo : `0.6164` ;
+- R3D-18 : `0.6207` ;
+- FGI : `0.8254`.
+
+### Interprétation
+Le split de test est déséquilibré avec 386 clips fake et 50 clips real.
+L'accuracy brute doit donc être interprétée avec prudence : au seuil `0.5`,
+le rappel fake atteint `89.4 %`, mais seulement `40.0 %` des clips real sont
+correctement reconnus. L'accuracy équilibrée correspondante est `0.6469`.
+
+L'AUC est le résultat principal de ce run : le modèle sépare bien mieux les
+classes que les baselines, mais le seuil de décision doit être calibré sur la
+validation. Une évaluation agrégée par vidéo et des métriques équilibrées
+devront compléter la prochaine expérience.

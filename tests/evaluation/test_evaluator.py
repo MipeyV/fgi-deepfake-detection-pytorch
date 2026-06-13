@@ -1,6 +1,7 @@
 import csv
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import torch
 from torch import nn
@@ -8,6 +9,7 @@ from torch import nn
 from src.evaluation.evaluator import (
     evaluate_audio_classifier,
     evaluate_audio_video_ensemble,
+    evaluate_fgi_classifier,
     evaluate_video_classifier,
     write_ensemble_evaluation_outputs,
     write_evaluation_outputs,
@@ -29,6 +31,16 @@ class MeanFrameScoreModel(nn.Module):
     def forward(self, frames: torch.Tensor) -> torch.Tensor:
         scores = frames.mean(dim=(1, 2, 3, 4))
         return torch.stack([-scores, scores], dim=1)
+
+
+class MeanFGIScoreModel(nn.Module):
+    def forward(
+        self,
+        frames: torch.Tensor,
+        audio: torch.Tensor,
+    ) -> SimpleNamespace:
+        scores = frames.mean(dim=(1, 2, 3, 4)) + audio.mean(dim=1)
+        return SimpleNamespace(logits=torch.stack([-scores, scores], dim=1))
 
 
 def make_eval_batches() -> list[dict]:
@@ -74,6 +86,29 @@ def make_ensemble_eval_batches() -> list[dict]:
         ]
     )
     return [batch]
+
+
+def make_fgi_eval_batches() -> list[dict]:
+    return [
+        {
+            "frames": torch.tensor(
+                [
+                    [[[[0.0, 0.0], [0.0, 0.0]]]],
+                    [[[[1.0, 1.0], [1.0, 1.0]]]],
+                ]
+            ),
+            "audio": torch.tensor(
+                [
+                    [-1.0, -1.0],
+                    [1.0, 1.0],
+                ]
+            ),
+            "label": torch.tensor([0, 1], dtype=torch.long),
+            "clip_path": ["clip_real", "clip_fake"],
+            "video_id": ["video_real", "video_fake"],
+            "clip_id": ["000000", "000001"],
+        }
+    ]
 
 
 def test_evaluate_audio_classifier_returns_metrics_and_predictions() -> None:
@@ -122,6 +157,21 @@ def test_evaluate_video_classifier_returns_metrics_and_predictions() -> None:
     assert result.metrics.f1 == 1.0
     assert len(result.predictions) == 2
     assert result.predictions[0].label == "real"
+    assert result.predictions[1].pred_label == "fake"
+
+
+def test_evaluate_fgi_classifier_returns_metrics_and_predictions() -> None:
+    result = evaluate_fgi_classifier(
+        model=MeanFGIScoreModel(),
+        dataloader=make_fgi_eval_batches(),
+        device=torch.device("cpu"),
+    )
+
+    assert result.metrics.accuracy == 1.0
+    assert result.metrics.f1 == 1.0
+    assert result.metrics.auc == 1.0
+    assert len(result.predictions) == 2
+    assert result.predictions[0].pred_label == "real"
     assert result.predictions[1].pred_label == "fake"
 
 

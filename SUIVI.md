@@ -228,18 +228,20 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 - [OK] Baseline audio-only (`src/models/audio_models.py`)
 - [OK] Baseline video-only (`src/models/video_models.py`)
 - [EN COURS] Fusion tardive audio-vidéo disponible pour évaluation
-- [ ] Modèle multimodal entraîné conjointement
-- [ ] Modèle inspiré FGI (fine-grained inconsistency detection)
+- [OK] Modèle multimodal entraîné conjointement
+- [OK] Modèle inspiré FGI (fine-grained inconsistency detection)
 - [OK] Encodeurs FGI audio et vidéo séparés
 - [OK] Projection commune `[B, 128, 15]`
 - [OK] Features vidéo locales `[B, 128, 15, 28, 28]`
-- [ ] Distance locale et attention FGI
+- [OK] Distance locale et attention FGI
 
 ### 2. **Logique d'Entraînement** (`src/training/`)
 - [OK] Boucle d'entraînement de base audio-only
 - [OK] Gestion des checkpoints (save/load)
 - [OK] Évaluation loss/accuracy hors entraînement
 - [OK] Early stopping sur métrique de validation
+- [OK] Boucles train/validation FGI multimodales
+- [OK] Évaluation FGI avec métriques et prédictions CSV
 - [ ] Learning rate scheduling
 - [ ] Support GPU/Multi-GPU (si nécessaire)
 - [ ] Logging d'expériences (TensorBoard, Weights&Biases, etc.)
@@ -264,9 +266,7 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 - [OK] `baseline_ensemble.yaml` - Configuration de fusion tardive
 - [OK] `r3d18_video.yaml` - Baseline vidéo préentraînée Kinetics-400
 - [OK] `fgi_preprocessing.yaml` - Contrat visuel préparatoire FGI
-- [OK] `fgi_inspired.yaml` - Modèle multimodal FGI configurable
-- [ ] `multimodal.yaml` - Configuration d'un modèle entraîné conjointement
-- [ ] `fgi_inspired.yaml` - Configuration FGI
+- [OK] `fgi_inspired.yaml` - Configuration FGI train/eval
 - [OK] Loader Python pour lire et valider la config audio baseline
 - [OK] Sélection indépendante de `video.preprocessing.name` et `model.name`
 
@@ -280,11 +280,13 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 - [OK] Commande `fgi-data-smoke`
 - [OK] Commande `fgi-encoder-smoke`
 - [OK] Commande `fgi-model-smoke`
+- [OK] Support FGI dans les commandes `train` et `eval`
 - [ ] Logging et rapports avancés
 
 ### 6. **Jobs cluster** (`jobs/`)
 - [OK] Script Slurm audio baseline
 - [OK] Script Slurm video baseline
+- [OK] Script Slurm entraînement FGI
 - [OK] Paramétrage par variables d'environnement pour smoke tests
 - [OK] Script d'évaluation d'un checkpoint
 - [OK] Script d'évaluation ensemble
@@ -333,7 +335,7 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 
 **Couverture** :
 - Data layer : [OK] Complet avec tests
-- Model layer : [EN COURS] Audio/vidéo testés, multimodal conjoint manquant
+- Model layer : [OK] Audio, vidéo et FGI multimodal testés
 - Training layer : [OK] Runs cluster et reprise testés
 - Eval layer : [OK] Audio, vidéo et ensemble testés
 
@@ -342,12 +344,11 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 ## Prochaines Étapes (Priorité Décroissante)
 
 1. **URGENT** : Générer et contrôler les crops YuNet train/val/test
-2. **IMPORTANT** : Ajouter les distances locales audio-visuelles et l'attention spatiale
-3. **IMPORTANT** : Ajouter la tête de classification FGI
-4. **IMPORTANT** : Ajouter le trainer et l'évaluateur multimodaux
-5. **IMPORTANT** : Ajouter les pseudo-fakes temporels au train uniquement
-6. **IMPORTANT** : Ajouter balanced accuracy, F1 macro, AUC-PR et courbes ROC/PR
-7. **IMPORTANT** : Comparer FGI aux baselines sur les mêmes splits
+2. **URGENT** : Lancer un smoke train FGI sur GPU
+3. **IMPORTANT** : Lancer l'entraînement FGI complet
+4. **IMPORTANT** : Ajouter les pseudo-fakes temporels au train uniquement
+5. **IMPORTANT** : Ajouter balanced accuracy, F1 macro, AUC-PR et courbes ROC/PR
+6. **IMPORTANT** : Comparer FGI aux baselines sur les mêmes splits
 
 ---
 
@@ -370,4 +371,4 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 ---
 
 **Dernière mise à jour** : 12 juin 2026
-**Statut** : Entrées FGI [OK] | Encodeurs FGI [OK] | Incohérences/attention [À FAIRE]
+**Statut** : Modèle FGI [OK] | Train/eval [OK] | Expérience GPU [À LANCER]

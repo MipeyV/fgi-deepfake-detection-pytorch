@@ -14,8 +14,10 @@ __all__ = [
     "EpochMetrics",
     "build_optimizer",
     "evaluate_audio_model",
+    "evaluate_fgi_model",
     "evaluate_video_model",
     "resolve_device",
+    "train_fgi_one_epoch",
     "train_one_epoch",
     "train_video_one_epoch",
 ]
@@ -343,6 +345,77 @@ def evaluate_video_model(
             logits = model(frames)
             loss = criterion(logits, labels)
 
+            _update_running_metrics(logits, labels, loss, totals)
+
+    return _finalize_metrics(totals)
+
+
+def _validate_fgi_batch(batch: dict) -> None:
+    """Validate a synchronized batch used by the FGI model."""
+    missing_keys = {"frames", "audio", "label"} - set(batch)
+    if missing_keys:
+        raise ValueError(f"Batch is missing required keys: {sorted(missing_keys)}")
+
+
+def train_fgi_one_epoch(
+    model: nn.Module,
+    dataloader: Iterable[dict],
+    optimizer: Optimizer,
+    criterion: nn.Module,
+    device: torch.device,
+    max_batches: int | None = None,
+) -> EpochMetrics:
+    """Train the multimodal FGI classifier for one epoch."""
+    model.to(device)
+    model.train()
+
+    totals = {"loss": 0.0, "correct": 0.0, "samples": 0.0, "batches": 0.0}
+
+    for batch_index, batch in enumerate(dataloader):
+        if max_batches is not None and batch_index >= max_batches:
+            break
+
+        _validate_fgi_batch(batch)
+        frames = batch["frames"].to(device)
+        audio = batch["audio"].to(device)
+        labels = batch["label"].to(device)
+
+        optimizer.zero_grad(set_to_none=True)
+        logits = model(frames, audio).logits
+        loss = criterion(logits, labels)
+        loss.backward()
+        optimizer.step()
+
+        _update_running_metrics(logits, labels, loss, totals)
+
+    return _finalize_metrics(totals)
+
+
+def evaluate_fgi_model(
+    model: nn.Module,
+    dataloader: Iterable[dict],
+    criterion: nn.Module,
+    device: torch.device,
+    max_batches: int | None = None,
+) -> EpochMetrics:
+    """Evaluate the multimodal FGI classifier without updating parameters."""
+    model.to(device)
+    model.eval()
+
+    totals = {"loss": 0.0, "correct": 0.0, "samples": 0.0, "batches": 0.0}
+
+    with torch.no_grad():
+        for batch_index, batch in enumerate(dataloader):
+            if max_batches is not None and batch_index >= max_batches:
+                break
+
+            _validate_fgi_batch(batch)
+            frames = batch["frames"].to(device)
+            audio = batch["audio"].to(device)
+            labels = batch["label"].to(device)
+
+            logits = model(frames, audio).logits
+            loss = criterion(logits, labels)
             _update_running_metrics(logits, labels, loss, totals)
 
     return _finalize_metrics(totals)
