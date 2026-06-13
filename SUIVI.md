@@ -248,8 +248,9 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 
 ### 3. **Métriques & Évaluation** (`src/evaluation/`)
 - [OK] Accuracy, Precision, Recall, F1-score
+- [OK] Balanced accuracy, spécificité et F1 macro
 - [OK] AUC-ROC
-- [ ] AUC-PR
+- [OK] AUC-PR via average precision
 - [OK] Confusion matrix
 - [OK] Courbes train loss/accuracy
 - [OK] Courbes train vs val loss/accuracy
@@ -257,6 +258,8 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 - [ ] Courbes ROC et Précision-Recall
 - [OK] Export `predictions/*.csv`
 - [OK] Export `metrics/*.json`
+- [OK] Calibration du seuil sur validation
+- [OK] Agrégation des probabilités et métriques par vidéo
 - [ ] Rapport d'évaluation complet avec courbes
 - [OK] Analyse d'accord et de désaccord entre modèles audio et vidéo
 
@@ -347,8 +350,9 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 2. **URGENT** : Lancer un smoke train FGI sur GPU
 3. **IMPORTANT** : Lancer l'entraînement FGI complet
 4. **IMPORTANT** : Ajouter les pseudo-fakes temporels au train uniquement
-5. **IMPORTANT** : Ajouter balanced accuracy, F1 macro, AUC-PR et courbes ROC/PR
-6. **IMPORTANT** : Comparer FGI aux baselines sur les mêmes splits
+5. **IMPORTANT** : Ajouter les courbes ROC et précision-rappel
+6. **IMPORTANT** : Comparer FGI aux baselines sur les mêmes splits et niveaux
+   clip/vidéo
 
 ---
 
@@ -370,5 +374,5 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 
 ---
 
-**Dernière mise à jour** : 12 juin 2026
-**Statut** : Modèle FGI [OK] | Train/eval [OK] | Expérience GPU [À LANCER]
+**Dernière mise à jour** : 13 juin 2026
+**Statut** : Modèle FGI [OK] | Calibration [OK] | Comparaison [À FAIRE]

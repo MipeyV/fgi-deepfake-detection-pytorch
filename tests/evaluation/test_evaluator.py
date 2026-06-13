@@ -7,6 +7,7 @@ import torch
 from torch import nn
 
 from src.evaluation.evaluator import (
+    calibrate_threshold_from_predictions,
     evaluate_audio_classifier,
     evaluate_audio_video_ensemble,
     evaluate_fgi_classifier,
@@ -173,6 +174,35 @@ def test_evaluate_fgi_classifier_returns_metrics_and_predictions() -> None:
     assert len(result.predictions) == 2
     assert result.predictions[0].pred_label == "real"
     assert result.predictions[1].pred_label == "fake"
+    assert result.video_metrics is not None
+    assert result.video_metrics.accuracy == 1.0
+    assert len(result.video_predictions) == 2
+
+
+def test_evaluate_video_classifier_applies_custom_threshold() -> None:
+    result = evaluate_video_classifier(
+        model=MeanFrameScoreModel(),
+        dataloader=make_video_eval_batches(),
+        device=torch.device("cpu"),
+        decision_threshold=0.49,
+    )
+
+    assert result.metrics.decision_threshold == 0.49
+    assert result.predictions[0].pred_label == "fake"
+    assert result.metrics.accuracy == 0.5
+
+
+def test_calibrate_threshold_from_validation_predictions() -> None:
+    result = evaluate_fgi_classifier(
+        model=MeanFGIScoreModel(),
+        dataloader=make_fgi_eval_batches(),
+        device=torch.device("cpu"),
+    )
+
+    calibration = calibrate_threshold_from_predictions(result.predictions)
+
+    assert calibration.metric_name == "balanced_accuracy"
+    assert calibration.metric_value == 1.0
 
 
 def test_evaluate_audio_video_ensemble_reports_disagreements() -> None:
@@ -202,19 +232,32 @@ def test_write_evaluation_outputs_writes_csv_and_json(tmp_path: Path) -> None:
     )
     predictions_path = tmp_path / "predictions.csv"
     metrics_path = tmp_path / "metrics.json"
+    video_predictions_path = tmp_path / "video_predictions.csv"
+    video_metrics_path = tmp_path / "video_metrics.json"
 
-    write_evaluation_outputs(result, predictions_path, metrics_path)
+    write_evaluation_outputs(
+        result,
+        predictions_path,
+        metrics_path,
+        video_predictions_path,
+        video_metrics_path,
+    )
 
     with predictions_path.open("r", encoding="utf-8", newline="") as csv_file:
         rows = list(csv.DictReader(csv_file))
 
     metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
+    video_metrics = json.loads(video_metrics_path.read_text(encoding="utf-8"))
 
     assert len(rows) == 2
     assert rows[0]["video_id"] == "video_real"
     assert rows[1]["pred_label"] == "fake"
     assert metrics["accuracy"] == 1.0
+    assert metrics["balanced_accuracy"] == 1.0
+    assert metrics["decision_threshold"] == 0.5
     assert metrics["num_samples"] == 2
+    assert video_metrics["accuracy"] == 1.0
+    assert video_predictions_path.is_file()
 
 
 def test_write_ensemble_evaluation_outputs_writes_comparison(tmp_path: Path) -> None:

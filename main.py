@@ -24,6 +24,7 @@ from src.data.fgi_multimodal import validate_fgi_multimodal_config
 from src.data.preprocessing_pipeline import preprocess_dataset, write_manifest
 from src.data.video import build_video_input_pipeline
 from src.evaluation.evaluator import (
+    calibrate_threshold_from_predictions,
     evaluate_audio_classifier,
     evaluate_audio_video_ensemble,
     evaluate_fgi_classifier,
@@ -31,6 +32,7 @@ from src.evaluation.evaluator import (
     write_ensemble_evaluation_outputs,
     write_evaluation_outputs,
 )
+from src.evaluation.metrics import ThresholdCalibrationResult
 from src.evaluation.plots import (
     plot_confusion_matrix_svg,
     plot_metric_history_svg,
@@ -181,6 +183,12 @@ def parse_args() -> argparse.Namespace:
     eval_parser.add_argument("--run-id", type=str, default=None)
     eval_parser.add_argument("--runs-root", type=Path, default=None)
     eval_parser.add_argument("--device", type=str, default=None)
+    eval_parser.add_argument(
+        "--decision-threshold",
+        type=float,
+        default=None,
+        help="Override the configured fake-class decision threshold.",
+    )
 
     ensemble_parser = subparsers.add_parser(
         "ensemble-eval",
@@ -278,22 +286,114 @@ def _print_training_outputs(run_dir: Path, metrics_path: Path, plots_dir: Path) 
 def _write_test_evaluation(
     result,
     run_context,
+    calibration: ThresholdCalibrationResult | None = None,
 ) -> None:
     """Write test metrics, predictions, and confusion matrix into a training run."""
     predictions_path = run_context.predictions_dir / "test_predictions.csv"
     metrics_path = run_context.metrics_dir / "test_metrics.json"
+    video_predictions_path = (
+        run_context.predictions_dir / "test_video_predictions.csv"
+    )
+    video_metrics_path = run_context.metrics_dir / "test_video_metrics.json"
     confusion_matrix_path = run_context.plots_dir / "test_confusion_matrix.svg"
-    write_evaluation_outputs(result, predictions_path, metrics_path)
+    write_evaluation_outputs(
+        result,
+        predictions_path,
+        metrics_path,
+        video_predictions_path,
+        video_metrics_path,
+    )
+    if calibration is not None:
+        write_json(
+            run_context.metrics_dir / "threshold_calibration.json",
+            asdict(calibration),
+        )
     plot_confusion_matrix_svg(metrics_path, confusion_matrix_path)
     print(
         "test "
         f"accuracy={result.metrics.accuracy:.4f} "
+        f"balanced_accuracy={result.metrics.balanced_accuracy:.4f} "
         f"f1={result.metrics.f1:.4f} "
+        f"threshold={result.decision_threshold:.4f} "
         f"samples={result.metrics.num_samples}"
     )
     print(f"Test metrics: {metrics_path}")
     print(f"Test predictions: {predictions_path}")
+    if result.video_metrics is not None:
+        print(f"Test video metrics: {video_metrics_path}")
+        print(f"Test video predictions: {video_predictions_path}")
     print(f"Test confusion matrix: {confusion_matrix_path}")
+
+
+def _configured_decision_threshold(
+    config: dict,
+    override: float | None = None,
+) -> float | None:
+    """Return a fixed threshold, or ``None`` when calibration is requested."""
+    if override is not None:
+        threshold = float(override)
+    else:
+        configured = config["evaluation"].get("decision_threshold", 0.5)
+        if configured == "calibrated":
+            return None
+        threshold = float(configured)
+
+    if not 0.0 <= threshold <= 1.0:
+        raise ValueError("evaluation.decision_threshold must be in [0, 1]")
+    return threshold
+
+
+def _calibrate_from_result(
+    result,
+    config: dict,
+    allow_incomplete: bool = False,
+) -> ThresholdCalibrationResult | None:
+    metric_name = config["evaluation"].get(
+        "calibration_metric",
+        "balanced_accuracy",
+    )
+    try:
+        return calibrate_threshold_from_predictions(
+            result.predictions,
+            metric_name=metric_name,
+        )
+    except ValueError as error:
+        if allow_incomplete and "requires both classes" in str(error):
+            print(
+                "Threshold calibration skipped because the limited validation "
+                "batches do not contain both classes; using 0.5"
+            )
+            return None
+        raise
+
+
+def _write_split_evaluation(
+    result,
+    run_context,
+    split: str,
+    calibration: ThresholdCalibrationResult | None = None,
+) -> tuple[Path, Path, Path]:
+    predictions_path = run_context.predictions_dir / f"{split}_predictions.csv"
+    metrics_path = run_context.metrics_dir / f"{split}_metrics.json"
+    video_predictions_path = (
+        run_context.predictions_dir / f"{split}_video_predictions.csv"
+    )
+    video_metrics_path = run_context.metrics_dir / f"{split}_video_metrics.json"
+    confusion_matrix_path = run_context.plots_dir / f"{split}_confusion_matrix.svg"
+    write_evaluation_outputs(
+        result,
+        predictions_path,
+        metrics_path,
+        video_predictions_path,
+        video_metrics_path,
+    )
+    if calibration is not None:
+        write_json(
+            run_context.metrics_dir / "threshold_calibration.json",
+            asdict(calibration),
+        )
+    plot_confusion_matrix_svg(metrics_path, confusion_matrix_path)
+    return predictions_path, metrics_path, confusion_matrix_path
 
 
 def _restore_training_state(
@@ -518,14 +618,37 @@ def train_audio_baseline(args: argparse.Namespace) -> None:
         checkpoint_path = run_context.checkpoints_dir / "best.pt"
         if checkpoint_path.is_file():
             load_model_checkpoint(model, checkpoint_path)
+        decision_threshold = _configured_decision_threshold(config)
+        calibration = None
+        if decision_threshold is None:
+            if val_loader is None:
+                raise ValueError(
+                    "Threshold calibration requires a validation manifest"
+                )
+            validation_result = evaluate_audio_classifier(
+                model=model,
+                feature_extractor=feature_extractor,
+                dataloader=val_loader,
+                device=device,
+                max_batches=args.max_batches,
+            )
+            calibration = _calibrate_from_result(
+                validation_result,
+                config,
+                allow_incomplete=args.max_batches is not None,
+            )
+            decision_threshold = (
+                calibration.threshold if calibration is not None else 0.5
+            )
         result = evaluate_audio_classifier(
             model=model,
             feature_extractor=feature_extractor,
             dataloader=test_loader,
             device=device,
             max_batches=args.max_batches,
+            decision_threshold=decision_threshold,
         )
-        _write_test_evaluation(result, run_context)
+        _write_test_evaluation(result, run_context, calibration)
 
 
 def train_video_baseline(args: argparse.Namespace) -> None:
@@ -695,13 +818,238 @@ def train_video_baseline(args: argparse.Namespace) -> None:
         checkpoint_path = run_context.checkpoints_dir / "best.pt"
         if checkpoint_path.is_file():
             load_model_checkpoint(model, checkpoint_path)
+        decision_threshold = _configured_decision_threshold(config)
+        calibration = None
+        if decision_threshold is None:
+            if val_loader is None:
+                raise ValueError(
+                    "Threshold calibration requires a validation manifest"
+                )
+            validation_result = evaluate_video_classifier(
+                model=model,
+                dataloader=val_loader,
+                device=device,
+                max_batches=args.max_batches,
+            )
+            calibration = _calibrate_from_result(
+                validation_result,
+                config,
+                allow_incomplete=args.max_batches is not None,
+            )
+            decision_threshold = (
+                calibration.threshold if calibration is not None else 0.5
+            )
         result = evaluate_video_classifier(
             model=model,
             dataloader=test_loader,
             device=device,
             max_batches=args.max_batches,
+            decision_threshold=decision_threshold,
         )
-        _write_test_evaluation(result, run_context)
+        _write_test_evaluation(result, run_context, calibration)
+
+
+def train_fgi_classifier(args: argparse.Namespace) -> None:
+    """Train the synchronized audio-video FGI classifier."""
+    config = load_config(args.config)
+    validate_fgi_multimodal_config(config)
+
+    run_context = create_run_context(
+        config=config,
+        config_path=args.config,
+        runs_root=args.runs_root,
+        run_id=args.run_id,
+    )
+    training_config = config["training"]
+    device = resolve_device(args.device or training_config["device"])
+    epochs = args.epochs or training_config["epochs"]
+    batch_size = args.batch_size or training_config["batch_size"]
+    pipeline = build_fgi_input_pipeline(config)
+
+    train_loader = pipeline.create_dataloader(
+        manifest_path=config["data"]["train_manifest"],
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=training_config["num_workers"],
+    )
+    val_manifest_path = Path(config["data"]["val_manifest"])
+    val_loader = None
+    if val_manifest_path.is_file():
+        val_loader = pipeline.create_dataloader(
+            manifest_path=val_manifest_path,
+            batch_size=config["validation"]["batch_size"],
+            shuffle=False,
+            num_workers=training_config["num_workers"],
+        )
+
+    model = build_fgi_model(config["model"])
+    optimizer = build_optimizer(model, training_config["optimizer"])
+    criterion = build_classification_criterion(
+        loss_config=training_config["loss"],
+        train_manifest_path=config["data"]["train_manifest"],
+        label_mapping=config["data"]["label_mapping"],
+        device=device,
+    )
+    if criterion.weight is not None:
+        print(f"Class weights: {criterion.weight.detach().cpu().tolist()}")
+
+    start_epoch, history, resumed_metric_name, best_metric_value = (
+        _restore_training_state(
+            model,
+            optimizer,
+            getattr(args, "resume", None),
+            run_context,
+        )
+    )
+    metrics_path = run_context.metrics_dir / "train_metrics.json"
+    if history:
+        write_json(metrics_path, history)
+
+    checkpointing_config = config["checkpointing"]
+    save_last = checkpointing_config.get("save_last", True)
+    save_best = checkpointing_config.get("save_best", True)
+    best_metric_name = resumed_metric_name or config["validation"].get(
+        "metric_for_best_checkpoint",
+        "val_loss" if val_loader is not None else "loss",
+    )
+    if val_loader is None and best_metric_name.startswith("val_"):
+        best_metric_name = "loss"
+    early_stopping = build_early_stopping_state(
+        training_config,
+        best_metric_name,
+    )
+
+    for epoch in range(start_epoch + 1, epochs + 1):
+        metrics = train_fgi_one_epoch(
+            model=model,
+            dataloader=train_loader,
+            optimizer=optimizer,
+            criterion=criterion,
+            device=device,
+            max_batches=args.max_batches,
+        )
+        epoch_metrics = {"epoch": epoch, **asdict(metrics)}
+
+        if val_loader is not None:
+            val_metrics = evaluate_fgi_model(
+                model=model,
+                dataloader=val_loader,
+                criterion=criterion,
+                device=device,
+                max_batches=args.max_batches,
+            )
+            epoch_metrics.update(
+                {
+                    "val_loss": val_metrics.loss,
+                    "val_accuracy": val_metrics.accuracy,
+                    "val_num_samples": val_metrics.num_samples,
+                    "val_num_batches": val_metrics.num_batches,
+                }
+            )
+
+        history.append(epoch_metrics)
+        write_json(metrics_path, history)
+        print(
+            "epoch "
+            f"{epoch}/{epochs} "
+            f"loss={metrics.loss:.4f} "
+            f"accuracy={metrics.accuracy:.4f} "
+            f"samples={metrics.num_samples}"
+        )
+
+        metric_name = best_metric_name
+        if metric_name not in epoch_metrics:
+            metric_name = "val_loss" if "val_loss" in epoch_metrics else "loss"
+        current_metric_value = float(epoch_metrics[metric_name])
+        if save_best and checkpoint_metric_is_better(
+            current_metric_value,
+            best_metric_value,
+            metric_name,
+        ):
+            best_metric_name = metric_name
+            best_metric_value = current_metric_value
+            save_training_checkpoint(
+                checkpoint_path=run_context.checkpoints_dir / "best.pt",
+                model=model,
+                optimizer=optimizer,
+                epoch=epoch,
+                metrics=epoch_metrics,
+                config=config,
+                best_metric_name=best_metric_name,
+                best_metric_value=best_metric_value,
+            )
+
+        should_stop = False
+        if early_stopping is not None and early_stopping.update(epoch_metrics):
+            epoch_metrics["early_stopped"] = True
+            print(
+                "early stopping triggered "
+                f"after {early_stopping.bad_epochs} non-improving epochs "
+                f"on {early_stopping.metric_name}"
+            )
+            should_stop = True
+
+        if save_last:
+            save_training_checkpoint(
+                checkpoint_path=run_context.checkpoints_dir / "last.pt",
+                model=model,
+                optimizer=optimizer,
+                epoch=epoch,
+                metrics=epoch_metrics,
+                config=config,
+                best_metric_name=best_metric_name,
+                best_metric_value=best_metric_value,
+            )
+        if should_stop:
+            break
+
+    if not history:
+        raise ValueError(
+            f"No epochs to train: checkpoint epoch {start_epoch}, target {epochs}"
+        )
+    write_json(metrics_path, history)
+    _write_training_plots(metrics_path, run_context.plots_dir)
+    _print_training_outputs(run_context.run_dir, metrics_path, run_context.plots_dir)
+
+    if config["evaluation"].get("auto_after_training", False):
+        test_loader = pipeline.create_dataloader(
+            manifest_path=config["data"]["test_manifest"],
+            batch_size=config["evaluation"]["batch_size"],
+            shuffle=False,
+            num_workers=training_config["num_workers"],
+        )
+        checkpoint_path = run_context.checkpoints_dir / "best.pt"
+        if checkpoint_path.is_file():
+            load_model_checkpoint(model, checkpoint_path)
+        decision_threshold = _configured_decision_threshold(config)
+        calibration = None
+        if decision_threshold is None:
+            if val_loader is None:
+                raise ValueError(
+                    "Threshold calibration requires a validation manifest"
+                )
+            validation_result = evaluate_fgi_classifier(
+                model=model,
+                dataloader=val_loader,
+                device=device,
+                max_batches=args.max_batches,
+            )
+            calibration = _calibrate_from_result(
+                validation_result,
+                config,
+                allow_incomplete=args.max_batches is not None,
+            )
+            decision_threshold = (
+                calibration.threshold if calibration is not None else 0.5
+            )
+        result = evaluate_fgi_classifier(
+            model=model,
+            dataloader=test_loader,
+            device=device,
+            max_batches=args.max_batches,
+            decision_threshold=decision_threshold,
+        )
+        _write_test_evaluation(result, run_context, calibration)
 
 
 def train_fgi_classifier(args: argparse.Namespace) -> None:
@@ -928,26 +1276,57 @@ def evaluate_audio_baseline(args: argparse.Namespace) -> None:
     if args.checkpoint is not None:
         load_model_checkpoint(model, args.checkpoint)
 
+    decision_threshold = _configured_decision_threshold(
+        config,
+        getattr(args, "decision_threshold", None),
+    )
+    calibration = None
+    if decision_threshold is None:
+        validation_loader = create_dataloader(
+            manifest_path=config["data"]["val_manifest"],
+            batch_size=batch_size,
+            shuffle=False,
+            num_workers=config["training"]["num_workers"],
+            include_frames=False,
+        )
+        validation_result = evaluate_audio_classifier(
+            model=model,
+            feature_extractor=feature_extractor,
+            dataloader=validation_loader,
+            device=device,
+            max_batches=args.max_batches,
+        )
+        calibration = _calibrate_from_result(
+            validation_result,
+            config,
+            allow_incomplete=args.max_batches is not None,
+        )
+        decision_threshold = (
+            calibration.threshold if calibration is not None else 0.5
+        )
     result = evaluate_audio_classifier(
         model=model,
         feature_extractor=feature_extractor,
         dataloader=dataloader,
         device=device,
         max_batches=args.max_batches,
+        decision_threshold=decision_threshold,
     )
-    predictions_path = run_context.predictions_dir / f"{args.split}_predictions.csv"
-    metrics_path = run_context.metrics_dir / f"{args.split}_metrics.json"
-    confusion_matrix_path = (
-        run_context.plots_dir / f"{args.split}_confusion_matrix.svg"
+    predictions_path, metrics_path, confusion_matrix_path = (
+        _write_split_evaluation(
+            result,
+            run_context,
+            args.split,
+            calibration,
+        )
     )
-
-    write_evaluation_outputs(result, predictions_path, metrics_path)
-    plot_confusion_matrix_svg(metrics_path, confusion_matrix_path)
 
     print(
         f"{args.split} "
         f"accuracy={result.metrics.accuracy:.4f} "
+        f"balanced_accuracy={result.metrics.balanced_accuracy:.4f} "
         f"f1={result.metrics.f1:.4f} "
+        f"threshold={result.decision_threshold:.4f} "
         f"samples={result.metrics.num_samples}"
     )
     print(f"Run directory: {run_context.run_dir}")
@@ -986,25 +1365,135 @@ def evaluate_video_baseline(args: argparse.Namespace) -> None:
     if args.checkpoint is not None:
         load_model_checkpoint(model, args.checkpoint)
 
+    decision_threshold = _configured_decision_threshold(
+        config,
+        getattr(args, "decision_threshold", None),
+    )
+    calibration = None
+    if decision_threshold is None:
+        validation_loader = input_pipeline.create_dataloader(
+            manifest_path=config["data"]["val_manifest"],
+            batch_size=batch_size,
+            shuffle=False,
+            num_workers=config["training"]["num_workers"],
+        )
+        validation_result = evaluate_video_classifier(
+            model=model,
+            dataloader=validation_loader,
+            device=device,
+            max_batches=args.max_batches,
+        )
+        calibration = _calibrate_from_result(
+            validation_result,
+            config,
+            allow_incomplete=args.max_batches is not None,
+        )
+        decision_threshold = (
+            calibration.threshold if calibration is not None else 0.5
+        )
     result = evaluate_video_classifier(
         model=model,
         dataloader=dataloader,
         device=device,
         max_batches=args.max_batches,
+        decision_threshold=decision_threshold,
     )
-    predictions_path = run_context.predictions_dir / f"{args.split}_predictions.csv"
-    metrics_path = run_context.metrics_dir / f"{args.split}_metrics.json"
-    confusion_matrix_path = (
-        run_context.plots_dir / f"{args.split}_confusion_matrix.svg"
+    predictions_path, metrics_path, confusion_matrix_path = (
+        _write_split_evaluation(
+            result,
+            run_context,
+            args.split,
+            calibration,
+        )
     )
-
-    write_evaluation_outputs(result, predictions_path, metrics_path)
-    plot_confusion_matrix_svg(metrics_path, confusion_matrix_path)
 
     print(
         f"{args.split} "
         f"accuracy={result.metrics.accuracy:.4f} "
+        f"balanced_accuracy={result.metrics.balanced_accuracy:.4f} "
         f"f1={result.metrics.f1:.4f} "
+        f"threshold={result.decision_threshold:.4f} "
+        f"samples={result.metrics.num_samples}"
+    )
+    print(f"Run directory: {run_context.run_dir}")
+    print(f"Evaluation metrics: {metrics_path}")
+    print(f"Predictions: {predictions_path}")
+    print(f"Confusion matrix: {confusion_matrix_path}")
+
+
+def evaluate_fgi_classifier_run(args: argparse.Namespace) -> None:
+    """Evaluate an FGI checkpoint and write standard run artifacts."""
+    config = load_config(args.config)
+    validate_fgi_multimodal_config(config)
+    run_context = create_run_context(
+        config=config,
+        config_path=args.config,
+        runs_root=args.runs_root,
+        run_id=args.run_id,
+    )
+
+    manifest_path = config["data"][f"{args.split}_manifest"]
+    device = resolve_device(args.device or config["training"]["device"])
+    batch_size = args.batch_size or config["evaluation"]["batch_size"]
+    pipeline = build_fgi_input_pipeline(config)
+    dataloader = pipeline.create_dataloader(
+        manifest_path=manifest_path,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=config["training"]["num_workers"],
+    )
+    model = build_fgi_model(config["model"])
+    if args.checkpoint is not None:
+        load_model_checkpoint(model, args.checkpoint)
+
+    decision_threshold = _configured_decision_threshold(
+        config,
+        getattr(args, "decision_threshold", None),
+    )
+    calibration = None
+    if decision_threshold is None:
+        validation_loader = pipeline.create_dataloader(
+            manifest_path=config["data"]["val_manifest"],
+            batch_size=batch_size,
+            shuffle=False,
+            num_workers=config["training"]["num_workers"],
+        )
+        validation_result = evaluate_fgi_classifier(
+            model=model,
+            dataloader=validation_loader,
+            device=device,
+            max_batches=args.max_batches,
+        )
+        calibration = _calibrate_from_result(
+            validation_result,
+            config,
+            allow_incomplete=args.max_batches is not None,
+        )
+        decision_threshold = (
+            calibration.threshold if calibration is not None else 0.5
+        )
+    result = evaluate_fgi_classifier(
+        model=model,
+        dataloader=dataloader,
+        device=device,
+        max_batches=args.max_batches,
+        decision_threshold=decision_threshold,
+    )
+    predictions_path, metrics_path, confusion_matrix_path = (
+        _write_split_evaluation(
+            result,
+            run_context,
+            args.split,
+            calibration,
+        )
+    )
+
+    print(
+        f"{args.split} "
+        f"accuracy={result.metrics.accuracy:.4f} "
+        f"balanced_accuracy={result.metrics.balanced_accuracy:.4f} "
+        f"f1={result.metrics.f1:.4f} "
+        f"threshold={result.decision_threshold:.4f} "
         f"samples={result.metrics.num_samples}"
     )
     print(f"Run directory: {run_context.run_dir}")
