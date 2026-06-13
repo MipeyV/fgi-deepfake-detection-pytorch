@@ -337,9 +337,35 @@ python3 main.py fgi-model-smoke \
   --device cpu
 ```
 
-The configuration is now marked `model_ready`. This means the forward model is
-implemented; integration with the generic `train` and `eval` commands is the
-next step.
+The configuration is marked `model_ready` and is supported by the generic
+training and evaluation commands:
+
+```bash
+python3 main.py train \
+  --config configs/fgi_inspired.yaml \
+  --device cuda
+
+python3 main.py eval \
+  --config configs/fgi_inspired.yaml \
+  --checkpoint runs/fgi-inspired/<run-id>/checkpoints/best.pt \
+  --split test \
+  --device cuda
+```
+
+Training uses synchronized face crops and raw audio, balanced cross-entropy,
+validation-based early stopping, resumable checkpoints, standard metric plots,
+and optional automatic test evaluation. Submit the cluster job with:
+
+```bash
+sbatch jobs/train_fgi.sbatch
+```
+
+For a short cluster smoke test:
+
+```bash
+MAX_BATCHES=1 EPOCHS=1 BATCH_SIZE=1 \
+  sbatch jobs/train_fgi.sbatch
+```
 
 ## Dataset analysis
 
