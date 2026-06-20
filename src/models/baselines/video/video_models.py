@@ -3,7 +3,7 @@
 New code may import from ``src.models.video`` directly.
 """
 
-from src.models.video import (
+from src.models.baselines.video import (
     R3D18VideoClassifier,
     VideoCNNBaseline,
     VideoConvBlock,
