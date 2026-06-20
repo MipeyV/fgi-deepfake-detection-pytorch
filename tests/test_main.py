@@ -13,8 +13,8 @@ from main import (
     train_fgi_classifier,
 )
 from main import evaluate_video_baseline, train_video_baseline
-from src.models.audio_models import build_audio_model
-from src.models.video import build_video_model
+from src.models.baselines.audio.audio_models import build_audio_model
+from src.models.baselines.video import build_video_model
 from tests.data.helpers import create_clip
 
 

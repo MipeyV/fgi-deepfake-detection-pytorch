@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from src.models.video import (
+from src.models.baselines.video import (
     R3D18VideoClassifier,
     VideoCNNBaseline,
     build_video_model,

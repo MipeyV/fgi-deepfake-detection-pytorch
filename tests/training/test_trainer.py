@@ -2,7 +2,7 @@ import pytest
 import torch
 from torch import nn
 
-from src.models.audio_models import AudioCNNBaseline
+from src.models.baselines.audio.audio_models import AudioCNNBaseline
 from src.training.trainer import (
     build_optimizer,
     evaluate_audio_model,

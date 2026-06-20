@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from src.models.audio_models import AudioCNNBaseline, build_audio_model
+from src.models.baselines.audio.audio_models import AudioCNNBaseline, build_audio_model
 
 
 def test_audio_cnn_baseline_returns_class_logits() -> None:

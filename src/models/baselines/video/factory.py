@@ -2,8 +2,8 @@
 
 from torch import nn
 
-from src.models.video.baseline import VideoCNNBaseline
-from src.models.video.r3d18 import R3D18VideoClassifier
+from src.models.baselines.video.baseline import VideoCNNBaseline
+from src.models.baselines.video.r3d18 import R3D18VideoClassifier
 
 
 def build_video_model(model_config: dict) -> nn.Module:

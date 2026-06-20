@@ -4,7 +4,7 @@ import torch
 from torch import nn
 from torchvision.models.video import R3D_18_Weights, r3d_18
 
-from src.models.video._validation import validate_positive_int
+from src.models.baselines.video._validation import validate_positive_int
 
 
 R3D18_KINETICS_MEAN = (0.43216, 0.394666, 0.37645)

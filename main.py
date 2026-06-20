@@ -40,9 +40,9 @@ from src.evaluation.plots import (
     plot_roc_curve_svg,
     plot_training_history_svg,
 )
-from src.models.audio_models import build_audio_model
+from src.models.baselines.audio.audio_models import build_audio_model
 from src.models.fgi import build_fgi_encoders, build_fgi_model
-from src.models.video import build_video_model
+from src.models.baselines.video import build_video_model
 from src.runs import create_run_context
 from src.training.checkpoints import (
     checkpoint_metric_is_better,

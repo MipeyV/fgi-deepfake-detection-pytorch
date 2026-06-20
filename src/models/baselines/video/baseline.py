@@ -7,7 +7,7 @@ from collections.abc import Sequence
 import torch
 from torch import nn
 
-from src.models.video._validation import (
+from src.models.baselines.video._validation import (
     validate_positive_int,
     validate_positive_sequence,
 )

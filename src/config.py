@@ -8,7 +8,7 @@ from typing import Any
 import yaml
 
 from src.data.video import validate_video_preprocessing_config
-from src.models.video import validate_video_model_config
+from src.models.baselines.video import validate_video_model_config
 
 
 Config = dict[str, Any]
