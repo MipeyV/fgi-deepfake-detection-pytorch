@@ -5,11 +5,14 @@ from pathlib import Path
 
 
 def prepare_dfdc_sample(input_dir: Path, output_dir: Path) -> None:
-    """Prepare a sample of the DFDC dataset by copying videos into separate real and fake directories based on metadata.
+    """Prepare a DFDC sample split into separate real and fake directories.
 
     Args:
-        input_dir (Path): The directory containing the original DFDC dataset with videos and metadata.json.
-        output_dir (Path): The directory where the prepared sample will be stored, with 'real' and 'fake' subdirectories.
+        input_dir: Directory containing original DFDC videos and ``metadata.json``.
+        output_dir: Directory where ``real`` and ``fake`` subdirectories are written.
+
+    Raises:
+        ValueError: If metadata contains an unsupported label.
     """
     metadata_path = input_dir / "metadata.json"
 
@@ -43,7 +46,7 @@ def parse_args() -> argparse.Namespace:
     """Parse command-line arguments for preparing the DFDC sample.
 
     Returns:
-        argparse.Namespace: The parsed arguments containing input and output directory paths.
+        Parsed arguments containing input and output directory paths.
     """
     parser = argparse.ArgumentParser()
     parser.add_argument("--input-dir", type=Path, required=True)
@@ -52,6 +55,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    """Run the DFDC sample preparation command."""
     args = parse_args()
     prepare_dfdc_sample(args.input_dir, args.output_dir)
 

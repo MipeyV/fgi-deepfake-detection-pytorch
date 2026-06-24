@@ -5,9 +5,9 @@ from __future__ import annotations
 import csv
 import json
 from collections import defaultdict
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Iterable
 
 import torch
 from torch import nn
@@ -18,7 +18,6 @@ from src.evaluation.metrics import (
     calibrate_binary_threshold,
     compute_binary_classification_metrics,
 )
-
 
 __all__ = [
     "AudioEvaluationResult",
@@ -139,6 +138,11 @@ class EnsembleEvaluationResult:
 
     @property
     def agreement_rate(self) -> float:
+        """Return the fraction of clips where audio and video predictions agree.
+
+        Returns:
+            Agreement count divided by the total number of ensemble predictions.
+        """
         return self.agreement_count / len(self.predictions)
 
 
@@ -209,12 +213,8 @@ def _aggregate_video_predictions(
             )
         )
 
-    labels_tensor = torch.tensor(
-        [prediction.label_idx for prediction in video_predictions]
-    )
-    scores_tensor = torch.tensor(
-        [prediction.prob_fake for prediction in video_predictions]
-    )
+    labels_tensor = torch.tensor([prediction.label_idx for prediction in video_predictions])
+    scores_tensor = torch.tensor([prediction.prob_fake for prediction in video_predictions])
     predicted_tensor = (scores_tensor > decision_threshold).long()
     metrics = compute_binary_classification_metrics(
         labels=labels_tensor,
@@ -528,9 +528,7 @@ def evaluate_audio_video_ensemble(
                         models_agree=audio_pred_idx == video_pred_idx,
                         ensemble_pred_label=_label_name(ensemble_pred_idx),
                         ensemble_pred_idx=ensemble_pred_idx,
-                        ensemble_prob_fake=float(
-                            ensemble_prob_fake[item_index].item()
-                        ),
+                        ensemble_prob_fake=float(ensemble_prob_fake[item_index].item()),
                         ensemble_correct=label_idx == ensemble_pred_idx,
                     )
                 )
@@ -545,9 +543,7 @@ def evaluate_audio_video_ensemble(
     audio_scores_tensor = torch.cat(all_audio_scores)
     video_scores_tensor = torch.cat(all_video_scores)
     ensemble_scores_tensor = torch.cat(all_ensemble_scores)
-    agreement_count = int(
-        (audio_predictions_tensor == video_predictions_tensor).sum().item()
-    )
+    agreement_count = int((audio_predictions_tensor == video_predictions_tensor).sum().item())
 
     return EnsembleEvaluationResult(
         audio_metrics=compute_binary_classification_metrics(
@@ -563,14 +559,10 @@ def evaluate_audio_video_ensemble(
         agreement_count=agreement_count,
         disagreement_count=len(records) - agreement_count,
         audio_fake_video_real_count=int(
-            ((audio_predictions_tensor == 1) & (video_predictions_tensor == 0))
-            .sum()
-            .item()
+            ((audio_predictions_tensor == 1) & (video_predictions_tensor == 0)).sum().item()
         ),
         audio_real_video_fake_count=int(
-            ((audio_predictions_tensor == 0) & (video_predictions_tensor == 1))
-            .sum()
-            .item()
+            ((audio_predictions_tensor == 0) & (video_predictions_tensor == 1)).sum().item()
         ),
     )
 

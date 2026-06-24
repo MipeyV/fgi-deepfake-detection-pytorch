@@ -46,7 +46,7 @@ def test_save_training_checkpoint_can_be_loaded_into_model(tmp_path: Path) -> No
     assert checkpoint["metrics"] == {"val_loss": 0.25}
     assert checkpoint["best_metric_name"] == "val_loss"
     assert checkpoint["best_metric_value"] == 0.25
-    for original, restored in zip(model.parameters(), restored_model.parameters()):
+    for original, restored in zip(model.parameters(), restored_model.parameters(), strict=True):
         assert torch.equal(original, restored)
 
 

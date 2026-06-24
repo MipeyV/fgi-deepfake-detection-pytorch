@@ -13,7 +13,7 @@ Contrairement à `SUIVI.md`, qui sert d'état global d'avancement, ce fichier ra
   - `src/`
   - `configs/`
   - `tests/`
-  - `experiments/`
+  - `experiments/` (remplacé ensuite par `runs/` pour les artefacts locaux)
   - `jobs/`
   - `notebooks/`
 - Ajout des premiers fichiers de base :

@@ -13,9 +13,7 @@ def _require_keys(config: dict, required_keys: set[str]) -> None:
     """
     missing_keys = required_keys - set(config)
     if missing_keys:
-        raise ValueError(
-            f"Config section 'model' is missing keys: {sorted(missing_keys)}"
-        )
+        raise ValueError(f"Config section 'model' is missing keys: {sorted(missing_keys)}")
 
 
 def _require_positive(value: int | float, key_path: str) -> None:
@@ -57,9 +55,7 @@ def validate_video_model_config(model_config: dict) -> None:
     if model_name == "r3d18":
         weights = model_config.get("weights", "none")
         if weights not in {"none", "kinetics400_v1"}:
-            raise ValueError(
-                "model.weights must be 'none' or 'kinetics400_v1' for r3d18"
-            )
+            raise ValueError("model.weights must be 'none' or 'kinetics400_v1' for r3d18")
         if not isinstance(model_config.get("normalize", True), bool):
             raise ValueError("model.normalize must be a boolean for r3d18")
         return

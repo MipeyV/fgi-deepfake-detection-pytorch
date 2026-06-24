@@ -6,7 +6,6 @@ from dataclasses import dataclass
 
 import torch
 
-
 __all__ = [
     "BinaryClassificationMetrics",
     "ThresholdCalibrationResult",
@@ -167,9 +166,9 @@ def compute_binary_roc_auc(labels: torch.Tensor, scores: torch.Tensor) -> float 
         start = end
 
     positive_rank_sum = ranks[labels == 1].sum().item()
-    auc = (
-        positive_rank_sum - num_positive * (num_positive + 1) / 2.0
-    ) / (num_positive * num_negative)
+    auc = (positive_rank_sum - num_positive * (num_positive + 1) / 2.0) / (
+        num_positive * num_negative
+    )
 
     return float(auc)
 
@@ -241,11 +240,7 @@ def compute_binary_classification_metrics(
     recall = tp / (tp + fn) if tp + fn > 0 else 0.0
     specificity = tn / (tn + fp) if tn + fp > 0 else 0.0
     balanced_accuracy = (recall + specificity) / 2
-    f1 = (
-        2 * precision * recall / (precision + recall)
-        if precision + recall > 0
-        else 0.0
-    )
+    f1 = 2 * precision * recall / (precision + recall) if precision + recall > 0 else 0.0
     real_precision = tn / (tn + fn) if tn + fn > 0 else 0.0
     real_recall = specificity
     real_f1 = (
@@ -256,9 +251,7 @@ def compute_binary_classification_metrics(
     f1_macro = (real_f1 + f1) / 2
     auc = compute_binary_roc_auc(labels, scores) if scores is not None else None
     average_precision = (
-        compute_binary_average_precision(labels, scores)
-        if scores is not None
-        else None
+        compute_binary_average_precision(labels, scores) if scores is not None else None
     )
 
     return BinaryClassificationMetrics(

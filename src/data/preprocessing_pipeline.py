@@ -1,10 +1,9 @@
-from pathlib import Path
-from dataclasses import dataclass
-
 import argparse
-import subprocess
-import shutil
 import csv
+import shutil
+import subprocess
+from dataclasses import dataclass
+from pathlib import Path
 
 # === GLOBAL CONSTANTS ===
 VIDEO_EXTENSIONS = {".mp4", ".avi", ".mov", ".mkv", ".webm"}
@@ -13,6 +12,14 @@ VIDEO_EXTENSIONS = {".mp4", ".avi", ".mov", ".mkv", ".webm"}
 # === DATA CLASSES ===
 @dataclass(frozen=True)
 class VideoItem:
+    """Video discovered for preprocessing.
+
+    Args:
+        path: Path to the source video file.
+        label: Dataset label associated with the video.
+        video_id: Stable identifier derived from the source filename.
+    """
+
     path: Path
     label: str
     video_id: str
@@ -21,52 +28,44 @@ class VideoItem:
 # === UTILITY FUNCTIONS ===
 def discover_videos(real_dir: Path, fake_dir: Path) -> list[VideoItem]:
     """Discover video files in the given directories and create a list of VideoItem instances.
-    
+
     Args:
-        real_dir (Path): Path to the directory containing real videos.
-        fake_dir (Path): Path to the directory containing fake videos.
-    
+        real_dir: Path to the directory containing real videos.
+        fake_dir: Path to the directory containing fake videos.
+
     Returns:
-        list[VideoItem]: A list of VideoItem instances representing the discovered videos.
-    
+        A list of discovered videos and their labels.
+
     Raises:
-        FileNotFoundError: If either of the provided directories does not exist or is not a directory.
+        FileNotFoundError: If either directory does not exist or is not a directory.
     """
     if not real_dir.is_dir():
-        raise FileNotFoundError(f"Real directory '{real_dir}' does not exist or is not a directory.")
+        raise FileNotFoundError(
+            f"Real directory '{real_dir}' does not exist or is not a directory."
+        )
     if not fake_dir.is_dir():
-        raise FileNotFoundError(f"Fake directory '{fake_dir}' does not exist or is not a directory.")
+        raise FileNotFoundError(
+            f"Fake directory '{fake_dir}' does not exist or is not a directory."
+        )
 
     video_items: list[VideoItem] = []
 
     for video_path in sorted(real_dir.rglob("*")):
         if video_path.is_file() and video_path.suffix.lower() in VIDEO_EXTENSIONS:
-            video_items.append(
-                VideoItem(
-                    path=video_path,
-                    label="real", 
-                    video_id=video_path.stem
-                )
-            )
+            video_items.append(VideoItem(path=video_path, label="real", video_id=video_path.stem))
 
     for video_path in sorted(fake_dir.rglob("*")):
         if video_path.is_file() and video_path.suffix.lower() in VIDEO_EXTENSIONS:
-            video_items.append(
-                VideoItem(
-                    path=video_path,
-                    label="fake", 
-                    video_id=video_path.stem
-                )
-            )
+            video_items.append(VideoItem(path=video_path, label="fake", video_id=video_path.stem))
 
     return video_items
 
 
 def run_command(command: list[str]) -> None:
     """Run a shell command and raise an error if it fails.
-    
+
     Args:
-        command (list[str]): The command to run, as a list of strings.
+        command: Command to run as a list of strings.
 
     Raises:
         RuntimeError: If the command fails (i.e., returns a non-zero exit code).
@@ -89,7 +88,7 @@ def run_command(command: list[str]) -> None:
 
 def check_ffmpeg_available() -> None:
     """Check if ffmpeg is available in the system PATH.
-    
+
     Raises:
         RuntimeError: If ffmpeg is not found in the system PATH.
     """
@@ -108,12 +107,12 @@ def check_ffmpeg_available() -> None:
 
 def normalize_video(input_path: Path, output_path: Path, fps: int = 30) -> None:
     """Normalize a video by converting it to a standard format and frame rate using ffmpeg.
-    
+
     Args:
-        input_path (Path): The path to the input video file.
-        output_path (Path): The path where the normalized video will be saved.
-        fps (int): The frame rate for the normalized video.
-    
+        input_path: Path to the input video file.
+        output_path: Path where the normalized video will be saved.
+        fps: Frame rate for the normalized video.
+
     Raises:
         FileNotFoundError: If the input video file does not exist.
         FileExistsError: If the output video file already exists.
@@ -121,13 +120,13 @@ def normalize_video(input_path: Path, output_path: Path, fps: int = 30) -> None:
     """
     if not input_path.is_file():
         raise FileNotFoundError(f"Input video file '{input_path}' does not exist.")
-    
+
     if output_path.exists():
         raise FileExistsError(
-            f"Output video file '{output_path}' already exists. " 
+            f"Output video file '{output_path}' already exists. "
             "Please choose a different path or remove the existing file."
         )
-    
+
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     command = [
@@ -149,11 +148,11 @@ def normalize_video(input_path: Path, output_path: Path, fps: int = 30) -> None:
 
 def extract_frames(video_path: Path, frames_dir: Path) -> None:
     """Extract frames from a video using ffmpeg and save them as JPEG images.
-    
+
     Args:
-        video_path (Path): The path to the input video file.
-        frames_dir (Path): The directory where the extracted frames will be saved.
-    
+        video_path: Path to the input video file.
+        frames_dir: Directory where the extracted frames will be saved.
+
     Raises:
         FileNotFoundError: If the input video file does not exist.
         FileExistsError: If the frames directory already exists and is not empty.
@@ -161,13 +160,13 @@ def extract_frames(video_path: Path, frames_dir: Path) -> None:
     """
     if not video_path.is_file():
         raise FileNotFoundError(f"Input video file '{video_path}' does not exist.")
-    
+
     if frames_dir.exists() and any(frames_dir.iterdir()):
         raise FileExistsError(
-            f"Frames directory '{frames_dir}' already exists and is not empty. " 
+            f"Frames directory '{frames_dir}' already exists and is not empty. "
             "Please choose a different path or remove the existing directory."
         )
-    
+
     frames_dir.mkdir(parents=True, exist_ok=True)
 
     command = [
@@ -189,11 +188,11 @@ def extract_frames(video_path: Path, frames_dir: Path) -> None:
 
 def extract_audio(video_path: Path, audio_path: Path, sample_rate: int = 48000) -> None:
     """Extract audio from a video using ffmpeg and save it as a WAV file.
-    
+
     Args:
-        video_path (Path): The path to the input video file.
-        audio_path (Path): The path where the extracted audio will be saved.
-        sample_rate (int): The sample rate for the extracted audio.
+        video_path: Path to the input video file.
+        audio_path: Path where the extracted audio will be saved.
+        sample_rate: Sample rate for the extracted audio.
 
     Raises:
         FileNotFoundError: If the input video file does not exist.
@@ -202,13 +201,13 @@ def extract_audio(video_path: Path, audio_path: Path, sample_rate: int = 48000) 
     """
     if not video_path.is_file():
         raise FileNotFoundError(f"Input video file '{video_path}' does not exist.")
-    
+
     if audio_path.exists():
         raise FileExistsError(
-            f"Output audio file '{audio_path}' already exists. " 
+            f"Output audio file '{audio_path}' already exists. "
             "Please choose a different path or remove the existing file."
         )
-    
+
     audio_path.parent.mkdir(parents=True, exist_ok=True)
 
     command = [
@@ -231,17 +230,17 @@ def extract_audio(video_path: Path, audio_path: Path, sample_rate: int = 48000) 
 
 def create_frame_clips(frame_dir: Path, clips_dir: Path, clip_size: int = 30) -> list[Path]:
     """Create clips of frames from a directory of extracted frames.
-    
+
     Args:
-        frame_dir (Path): The directory containing the extracted frames.
-        clips_dir (Path): The directory where the created clips will be saved.
-        clip_size (int): The number of frames per clip.
+        frame_dir: Directory containing the extracted frames.
+        clips_dir: Directory where the created clips will be saved.
+        clip_size: Number of frames per clip.
 
     Returns:
-        list[Path]: A list of paths to the created clip files.
+        Paths to the created clip directories.
 
     Raises:
-        FileNotFoundError: If the frame directory does not exist or is empty or if the frame directory does not contain any JPEG images.
+        FileNotFoundError: If the frame directory is missing, empty, or contains no JPEGs.
         FileExistsError: If the clips directory already exists and is not empty.
     """
     if not frame_dir.is_dir():
@@ -262,7 +261,7 @@ def create_frame_clips(frame_dir: Path, clips_dir: Path, clip_size: int = 30) ->
     clip_paths: list[Path] = []
 
     for start_index in range(0, len(frame_paths), clip_size):
-        clip_frames = frame_paths[start_index:start_index + clip_size]
+        clip_frames = frame_paths[start_index : start_index + clip_size]
 
         if len(clip_frames) < clip_size:
             break
@@ -289,17 +288,17 @@ def create_audio_clip(
     sample_rate: int = 48000,
 ) -> None:
     """Create an audio clip from a WAV file corresponding to a video clip.
-    
+
     Args:
-        audio_path (Path): The path to the input audio WAV file.
-        clip_path (Path): The path to the directory of the corresponding video clip frames.
-        start_time (float): The start time in seconds for the audio clip.
-        clip_size (int): The number of frames in the video clip (default is 30).
-        fps (int): The frame rate of the video (default is 30).
-        sample_rate (int): The sample rate for the output audio clip (default is 48000).
+        audio_path: Path to the input audio WAV file.
+        clip_path: Directory of the corresponding video clip frames.
+        start_time: Start time in seconds for the audio clip.
+        clip_size: Number of frames in the video clip.
+        fps: Frame rate of the video.
+        sample_rate: Sample rate for the output audio clip.
 
     Raises:
-        FileNotFoundError: If the input audio file does not exist or if the clip directory does not exist.
+        FileNotFoundError: If the input audio file or clip directory does not exist.
         FileExistsError: If the output audio clip file already exists.
         RuntimeError: If the ffmpeg command fails.
     """
@@ -344,30 +343,30 @@ def cleanup_frames_dir(frames_dir: Path) -> None:
     """Remove the temporary extracted frames directory after clips are created.
 
     Args:
-        frames_dir (Path): The directory containing extracted frames.
+        frames_dir: Directory containing extracted frames.
     """
     if frames_dir.exists():
         shutil.rmtree(frames_dir)
 
 
 def preprocess_video(
-    video_item: VideoItem, 
+    video_item: VideoItem,
     output_dir: Path,
     fps: int = 30,
     clip_size: int = 30,
     sample_rate: int = 48000,
 ) -> list[Path]:
     """Preprocess a video by normalizing it, extracting frames and audio, and creating clips.
-    
+
     Args:
-        video_item (VideoItem): The VideoItem instance representing the video to preprocess.
-        output_dir (Path): The directory where the preprocessed data will be saved.
-        fps (int): The frame rate for normalization and clip creation (default is 30).
-        clip_size (int): The number of frames per clip (default is 30).
-        sample_rate (int): The sample rate for audio extraction and clips (default is 48000).
+        video_item: Video item to preprocess.
+        output_dir: Directory where the preprocessed data will be saved.
+        fps: Frame rate for normalization and clip creation.
+        clip_size: Number of frames per clip.
+        sample_rate: Sample rate for audio extraction and clips.
 
     Returns:
-        list[Path]: A list of paths to the created clip directories.
+        Paths to the created clip directories.
 
     Raises:
         RuntimeError: If any of the preprocessing steps fail.
@@ -400,26 +399,26 @@ def preprocess_video(
 
 
 def preprocess_dataset(
-    real_dir: Path, 
-    fake_dir: Path, 
+    real_dir: Path,
+    fake_dir: Path,
     output_dir: Path,
     fps: int = 30,
     clip_size: int = 30,
     sample_rate: int = 48000,
 ) -> list[Path]:
-    """Preprocess a dataset of videos by discovering videos and applying preprocessing to each video.
-    
+    """Preprocess all discovered videos in a real/fake dataset.
+
     Args:
-        real_dir (Path): The directory containing real videos.
-        fake_dir (Path): The directory containing fake videos.
-        output_dir (Path): The directory where the preprocessed dataset will be saved.
-        fps (int): The frame rate for normalization and clip creation (default is 30).
-        clip_size (int): The number of frames per clip (default is 30).
-        sample_rate (int): The sample rate for audio extraction and clips (default is 48000).
+        real_dir: Directory containing real videos.
+        fake_dir: Directory containing fake videos.
+        output_dir: Directory where the preprocessed dataset will be saved.
+        fps: Frame rate for normalization and clip creation.
+        clip_size: Number of frames per clip.
+        sample_rate: Sample rate for audio extraction and clips.
 
     Returns:
-        list[Path]: A list of paths to all the created clip directories for the entire dataset.
-    
+        Paths to all created clip directories for the dataset.
+
     Raises:
         RuntimeError: If any of the preprocessing steps fail for any video in the dataset.
     """
@@ -438,16 +437,16 @@ def preprocess_dataset(
             sample_rate=sample_rate,
         )
         all_clip_paths.extend(clip_paths)
-    
+
     return all_clip_paths
 
 
 def write_manifest(clip_paths: list[Path], manifest_path: Path) -> None:
     """Write a manifest file containing the paths and labels of the preprocessed clips.
-    
+
     Args:
-        clip_paths (list[Path]): A list of paths to the clip directories.
-        manifest_path (Path): The path where the manifest file will be saved.
+        clip_paths: Paths to the clip directories.
+        manifest_path: Path where the manifest file will be saved.
 
     Raises:
         FileExistsError: If the manifest file already exists.
@@ -483,6 +482,11 @@ def write_manifest(clip_paths: list[Path], manifest_path: Path) -> None:
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse command-line arguments for clip preprocessing.
+
+    Returns:
+        Parsed arguments describing input directories, output paths, and clip settings.
+    """
     parser = argparse.ArgumentParser(
         description="Preprocess real/fake videos into frame/audio clips and write a manifest."
     )
@@ -497,6 +501,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    """Run video preprocessing and write the requested manifest."""
     args = parse_args()
     clip_paths = preprocess_dataset(
         real_dir=args.real_dir,

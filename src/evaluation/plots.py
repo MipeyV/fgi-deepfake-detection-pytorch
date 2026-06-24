@@ -7,7 +7,6 @@ import json
 import math
 from pathlib import Path
 
-
 __all__ = [
     "load_training_history",
     "plot_confusion_matrix_svg",
@@ -86,19 +85,14 @@ def _scale_values(
     drawable_height = height - 2 * padding
 
     return [
-        height
-        - padding
-        - ((value - min_value) / (max_value - min_value)) * drawable_height
+        height - padding - ((value - min_value) / (max_value - min_value)) * drawable_height
         for value in values
     ]
 
 
 def _axis_ticks(min_value: float, max_value: float, count: int = 5) -> list[float]:
     """Create evenly spaced axis tick values."""
-    return [
-        min_value + index * (max_value - min_value) / (count - 1)
-        for index in range(count)
-    ]
+    return [min_value + index * (max_value - min_value) / (count - 1) for index in range(count)]
 
 
 def _epoch_tick_indices(epochs: list[int], max_ticks: int = 6) -> list[int]:
@@ -107,10 +101,7 @@ def _epoch_tick_indices(epochs: list[int], max_ticks: int = 6) -> list[int]:
         return list(range(len(epochs)))
 
     return sorted(
-        {
-            round(index * (len(epochs) - 1) / (max_ticks - 1))
-            for index in range(max_ticks)
-        }
+        {round(index * (len(epochs) - 1) / (max_ticks - 1)) for index in range(max_ticks)}
     )
 
 
@@ -165,10 +156,7 @@ def _scale_epochs(epochs: list[int], width: int, padding: int) -> list[float]:
     if len(epochs) == 1:
         return [width / 2]
 
-    return [
-        padding + index * drawable_width / (len(epochs) - 1)
-        for index, _ in enumerate(epochs)
-    ]
+    return [padding + index * drawable_width / (len(epochs) - 1) for index, _ in enumerate(epochs)]
 
 
 def _polyline(points: list[tuple[float, float]]) -> str:
@@ -197,9 +185,7 @@ def _validate_history_keys(history: list[dict], required_keys: set[str]) -> None
         missing_keys = required_keys - set(item)
 
         if missing_keys:
-            raise ValueError(
-                f"Training metric row is missing keys: {sorted(missing_keys)}"
-            )
+            raise ValueError(f"Training metric row is missing keys: {sorted(missing_keys)}")
 
 
 def plot_metric_history_svg(
@@ -241,14 +227,9 @@ def plot_metric_history_svg(
     padding = 60
     x_values = _scale_epochs(epochs, width, padding)
     series_values = {
-        label: [float(item[key]) for item in history]
-        for label, key in metric_keys.items()
+        label: [float(item[key]) for item in history] for label, key in metric_keys.items()
     }
-    all_values = [
-        value
-        for values in series_values.values()
-        for value in values
-    ]
+    all_values = [value for values in series_values.values() for value in values]
     bounds = _value_bounds(all_values)
     y_values = _scale_values(all_values, height, padding, bounds)
     y_lookup = {}
@@ -282,7 +263,7 @@ def plot_metric_history_svg(
   <line x1="{padding}" y1="{padding}" x2="{padding}" y2="{height - padding}" stroke="#333"/>
   <text x="{width / 2:.0f}" y="{height - 18}" text-anchor="middle" font-family="sans-serif" font-size="13">Epoch</text>
   <text x="20" y="{height / 2:.0f}" text-anchor="middle" font-family="sans-serif" font-size="13" transform="rotate(-90 20 {height / 2:.0f})">{y_label}</text>
-{''.join(series_svg)}
+{"".join(series_svg)}
 {chr(10).join(legend_svg)}
 </svg>
 """
@@ -458,7 +439,7 @@ def plot_confusion_matrix_svg(
   <text x="{left + cell_size + cell_size / 2:.0f}" y="92" text-anchor="middle" font-family="sans-serif" font-size="13">{predicted_labels[1]}</text>
   <text x="{left - 18}" y="{top + cell_size / 2 + 5:.0f}" text-anchor="end" font-family="sans-serif" font-size="13">{actual_labels[0]}</text>
   <text x="{left - 18}" y="{top + cell_size + cell_size / 2 + 5:.0f}" text-anchor="end" font-family="sans-serif" font-size="13">{actual_labels[1]}</text>
-{''.join(cells)}
+{"".join(cells)}
   <text x="{width / 2:.0f}" y="{height - 34}" text-anchor="middle" font-family="sans-serif" font-size="13">real = 0, fake = 1</text>
 </svg>
 """
@@ -478,9 +459,7 @@ def plot_roc_curve_svg(
     predictions_path = Path(predictions_path)
     output_path = Path(output_path)
     if not predictions_path.is_file():
-        raise FileNotFoundError(
-            f"Predictions file does not exist: {predictions_path}"
-        )
+        raise FileNotFoundError(f"Predictions file does not exist: {predictions_path}")
 
     labels: list[int] = []
     scores: list[float] = []
@@ -489,10 +468,7 @@ def plot_roc_curve_svg(
         required_columns = {"label_idx", "prob_fake"}
         missing_columns = required_columns - set(reader.fieldnames or [])
         if missing_columns:
-            raise ValueError(
-                "Predictions file is missing columns: "
-                f"{sorted(missing_columns)}"
-            )
+            raise ValueError(f"Predictions file is missing columns: {sorted(missing_columns)}")
         for row in reader:
             labels.append(int(row["label_idx"]))
             scores.append(float(row["prob_fake"]))
@@ -524,7 +500,7 @@ def plot_roc_curve_svg(
 
     auc = sum(
         (right[0] - left[0]) * (right[1] + left[1]) / 2
-        for left, right in zip(points, points[1:])
+        for left, right in zip(points, points[1:], strict=False)
     )
     padding = 70
     drawable_width = width - 2 * padding
@@ -580,14 +556,8 @@ def _load_roc_points(
         required_columns = {"label_idx", score_column}
         missing_columns = required_columns - set(reader.fieldnames or [])
         if missing_columns:
-            raise ValueError(
-                "Predictions file is missing columns: "
-                f"{sorted(missing_columns)}"
-            )
-        rows = [
-            (float(row[score_column]), int(row["label_idx"]))
-            for row in reader
-        ]
+            raise ValueError(f"Predictions file is missing columns: {sorted(missing_columns)}")
+        rows = [(float(row[score_column]), int(row["label_idx"])) for row in reader]
 
     num_positive = sum(label == 1 for _, label in rows)
     num_negative = sum(label == 0 for _, label in rows)
@@ -616,7 +586,7 @@ def _load_roc_points(
 
     auc = sum(
         (right[0] - left[0]) * (right[1] + left[1]) / 2
-        for left, right in zip(points, points[1:])
+        for left, right in zip(points, points[1:], strict=False)
     )
     return points, auc
 

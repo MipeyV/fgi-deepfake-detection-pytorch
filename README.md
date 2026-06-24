@@ -44,7 +44,7 @@ This repository does **not directly reuse the original code**, but instead aims 
 .
 ├── data/              # datasets (not tracked)
 ├── configs/           # experiment configurations
-├── experiments/       # logs, results, checkpoints
+├── runs/              # local logs, results, checkpoints (not tracked)
 ├── jobs/              # jobs for cluster runs
 ├── notebooks/         # exploration
 ├── src/

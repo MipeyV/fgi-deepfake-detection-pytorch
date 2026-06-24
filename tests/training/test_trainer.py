@@ -79,7 +79,7 @@ def test_train_one_epoch_updates_model_and_returns_metrics() -> None:
     assert metrics.num_batches == 2
     assert metrics.loss > 0
     assert 0 <= metrics.accuracy <= 1
-    assert any(not torch.equal(old, new) for old, new in zip(before, after))
+    assert any(not torch.equal(old, new) for old, new in zip(before, after, strict=True))
 
 
 def test_train_one_epoch_can_limit_number_of_batches() -> None:
@@ -132,7 +132,7 @@ def test_evaluate_audio_model_does_not_update_model() -> None:
 
     assert metrics.num_samples == 8
     assert metrics.num_batches == 2
-    assert all(torch.equal(old, new) for old, new in zip(before, after))
+    assert all(torch.equal(old, new) for old, new in zip(before, after, strict=True))
 
 
 def test_train_one_epoch_rejects_missing_batch_keys() -> None:

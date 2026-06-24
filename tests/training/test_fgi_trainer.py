@@ -66,8 +66,7 @@ def test_train_fgi_one_epoch_updates_model() -> None:
     assert metrics.num_batches == 2
     assert metrics.loss > 0
     assert any(
-        not torch.equal(old, new)
-        for old, new in zip(before, model.parameters())
+        not torch.equal(old, new) for old, new in zip(before, model.parameters(), strict=True)
     )
 
 
@@ -83,10 +82,7 @@ def test_evaluate_fgi_model_does_not_update_model() -> None:
     )
 
     assert metrics.num_samples == 4
-    assert all(
-        torch.equal(old, new)
-        for old, new in zip(before, model.parameters())
-    )
+    assert all(torch.equal(old, new) for old, new in zip(before, model.parameters(), strict=True))
 
 
 def test_train_fgi_one_epoch_rejects_missing_audio() -> None:

@@ -6,7 +6,6 @@ from dataclasses import dataclass
 
 from src.training.checkpoints import checkpoint_metric_is_better
 
-
 __all__ = ["EarlyStoppingState", "build_early_stopping_state"]
 
 
@@ -45,8 +44,7 @@ class EarlyStoppingState:
 
         if self.metric_name not in metrics:
             raise ValueError(
-                f"Early stopping metric is missing from epoch metrics: "
-                f"{self.metric_name}"
+                f"Early stopping metric is missing from epoch metrics: {self.metric_name}"
             )
 
         current_value = float(metrics[self.metric_name])

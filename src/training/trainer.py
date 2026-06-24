@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable
 
 import torch
 from torch import nn
 from torch.optim import Optimizer
-
 
 __all__ = [
     "EpochMetrics",
@@ -335,9 +334,7 @@ def evaluate_video_model(
 
             missing_keys = {"frames", "label"} - set(batch)
             if missing_keys:
-                raise ValueError(
-                    f"Batch is missing required keys: {sorted(missing_keys)}"
-                )
+                raise ValueError(f"Batch is missing required keys: {sorted(missing_keys)}")
 
             frames = batch["frames"].to(device)
             labels = batch["label"].to(device)

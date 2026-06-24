@@ -13,7 +13,6 @@ from torch.utils.data import DataLoader, Dataset
 
 from src.data.video.transforms import FrameTransform
 
-
 REQUIRED_MANIFEST_COLUMNS = {"clip_path", "label", "video_id", "clip_id"}
 
 
@@ -46,15 +45,11 @@ class FGIMultimodalDataset(Dataset):
         """
         self.manifest_path = Path(manifest_path)
         if not self.manifest_path.is_file():
-            raise FileNotFoundError(
-                f"Manifest file does not exist: {self.manifest_path}"
-            )
+            raise FileNotFoundError(f"Manifest file does not exist: {self.manifest_path}")
         if expected_frames <= 0 or sample_rate <= 0 or audio_samples <= 0:
             raise ValueError("FGI shape and sample-rate values must be positive")
         if audio_normalization not in {"minmax", "pcm16"}:
-            raise ValueError(
-                "audio_normalization must be 'minmax' or 'pcm16'"
-            )
+            raise ValueError("audio_normalization must be 'minmax' or 'pcm16'")
 
         self.samples = pd.read_csv(
             self.manifest_path,
@@ -67,14 +62,10 @@ class FGIMultimodalDataset(Dataset):
         )
         missing_columns = REQUIRED_MANIFEST_COLUMNS - set(self.samples.columns)
         if missing_columns:
-            raise ValueError(
-                f"Manifest is missing required columns: {sorted(missing_columns)}"
-            )
+            raise ValueError(f"Manifest is missing required columns: {sorted(missing_columns)}")
         invalid_labels = set(self.samples["label"]) - {"real", "fake"}
         if invalid_labels:
-            raise ValueError(
-                f"Manifest contains invalid labels: {sorted(invalid_labels)}"
-            )
+            raise ValueError(f"Manifest contains invalid labels: {sorted(invalid_labels)}")
 
         self.frame_transform = frame_transform
         self.expected_frames = expected_frames
@@ -118,8 +109,7 @@ class FGIMultimodalDataset(Dataset):
         frame_paths = sorted(clip_path.glob("*.jpg"))
         if len(frame_paths) != self.expected_frames:
             raise ValueError(
-                f"Expected {self.expected_frames} frames in {clip_path}, "
-                f"found {len(frame_paths)}"
+                f"Expected {self.expected_frames} frames in {clip_path}, found {len(frame_paths)}"
             )
 
         frames = []
@@ -147,13 +137,11 @@ class FGIMultimodalDataset(Dataset):
             raise ValueError(f"FGI audio must use 16-bit PCM: {audio_path}")
         if sample_rate != self.sample_rate:
             raise ValueError(
-                f"Expected audio sample rate {self.sample_rate}, "
-                f"found {sample_rate}: {audio_path}"
+                f"Expected audio sample rate {self.sample_rate}, found {sample_rate}: {audio_path}"
             )
         if num_samples != self.audio_samples:
             raise ValueError(
-                f"Expected {self.audio_samples} audio samples, "
-                f"found {num_samples}: {audio_path}"
+                f"Expected {self.audio_samples} audio samples, found {num_samples}: {audio_path}"
             )
 
         audio = np.frombuffer(raw_audio, dtype=np.int16).astype(np.float32)
@@ -254,20 +242,14 @@ def validate_fgi_multimodal_config(config: dict) -> None:
     required_sections = {"data", "video", "audio", "model", "training"}
     missing_sections = required_sections - set(config)
     if missing_sections:
-        raise ValueError(
-            f"FGI config is missing sections: {sorted(missing_sections)}"
-        )
+        raise ValueError(f"FGI config is missing sections: {sorted(missing_sections)}")
 
     preprocessing = config["video"].get("preprocessing", {})
     if preprocessing.get("name") != "resize_normalize":
-        raise ValueError(
-            "FGI video preprocessing must use resize_normalize"
-        )
+        raise ValueError("FGI video preprocessing must use resize_normalize")
     for key in ("frame_size", "mean", "std"):
         if key not in preprocessing:
-            raise ValueError(
-                f"FGI video preprocessing is missing: {key}"
-            )
+            raise ValueError(f"FGI video preprocessing is missing: {key}")
 
     expected_frames = config["video"].get("expected_frames")
     if not isinstance(expected_frames, int) or expected_frames <= 0:
@@ -290,9 +272,7 @@ def validate_fgi_multimodal_config(config: dict) -> None:
         "encoders_ready",
         "model_ready",
     }:
-        raise ValueError(
-            "FGI model status must be pending, encoders_ready, or model_ready"
-        )
+        raise ValueError("FGI model status must be pending, encoders_ready, or model_ready")
     encoder_config = config["model"].get("encoders")
     if not isinstance(encoder_config, dict):
         raise ValueError("model.encoders must be a mapping")

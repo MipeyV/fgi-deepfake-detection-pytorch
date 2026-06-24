@@ -12,16 +12,17 @@ def collate_deepfake_batch(batch: list[dict]) -> dict:
     Tensor fields are stacked, while metadata fields are kept as lists.
 
     Args:
-        batch (list[dict]): A list of samples, where each sample is a dictionary containing:
+        batch: Samples where each dictionary contains:
             - "frames": Tensor of shape [num_frames, C, H, W]
             - "audio": Tensor of shape [1, num_samples]
             - "label": Tensor scalar (0 for real, 1 for fake)
             - "clip_path": Path to the clip directory
             - "video_id": ID of the source video
             - "clip_id": ID of the clip within the video
-    
+
     Returns:
-        dict: A dictionary containing the collated batch with the same keys as the input samples,
+        Dictionary containing the collated batch with the same keys as the input
+        samples.
     """
     collated_batch = {
         "audio": torch.stack([sample["audio"] for sample in batch]),
@@ -46,28 +47,29 @@ def create_dataloader(
     include_frames: bool = True,
     collate_fn=collate_deepfake_batch,
 ) -> DataLoader:
-    """Create a Dataloader for preprocessed deepfake clips.
-    
+    """Create a dataloader for preprocessed deepfake clips.
+
     Args:
-        manifest_path (str | Path): Path to the manifest CSV file.
-        batch_size (int, optional): Number of samples per batch. Defaults to 8.
-        shuffle (bool, optional): Whether to shuffle the data. Defaults to True.
-        num_workers (int, optional): Number of subprocesses to use for data loading. Defaults to 0.
-        frame_transform (callable, optional): A function/transform that takes in a PIL image and returns a transformed version. Defaults to None.
-        collate_fn (callable, optional): Function used to merge samples into batches.
+        manifest_path: Path to the manifest CSV file.
+        batch_size: Number of samples per batch.
+        shuffle: Whether to shuffle the data.
+        num_workers: Number of subprocesses to use for data loading.
+        frame_transform: Optional transform applied to loaded PIL frames.
+        include_frames: Whether to load video frames for each sample.
+        collate_fn: Function used to merge samples into batches.
 
     Returns:
-        DataLoader: A PyTorch DataLoader for the DeepFakeClipDataset.
-    
+        PyTorch dataloader for the deepfake clip dataset.
+
     Raises:
         FileNotFoundError: If the manifest file does not exist.
-    
+
     """
     if not Path(manifest_path).is_file():
         raise FileNotFoundError(f"Manifest file does not exist: {manifest_path}")
 
     dataset = DeepFakeClipDataset(
-        manifest_path, 
+        manifest_path,
         frame_transform=frame_transform,
         include_frames=include_frames,
     )

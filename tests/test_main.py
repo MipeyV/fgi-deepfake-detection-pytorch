@@ -4,18 +4,19 @@ from pathlib import Path
 
 import torch
 import yaml
-
 from main import (
     evaluate_audio_baseline,
     evaluate_audio_video_baseline,
     evaluate_fgi_classifier_run,
+    evaluate_video_baseline,
     train_audio_baseline,
     train_fgi_classifier,
+    train_video_baseline,
 )
-from main import evaluate_video_baseline, train_video_baseline
+from tests.data.helpers import create_clip
+
 from src.models.baselines.audio.audio_models import build_audio_model
 from src.models.baselines.video import build_video_model
-from tests.data.helpers import create_clip
 
 
 def write_train_config(tmp_path: Path, manifest_path: Path) -> Path:
@@ -335,9 +336,7 @@ def test_train_audio_baseline_writes_run_metrics(tmp_path: Path) -> None:
 
     resumed_run_dir = tmp_path / "runs" / "baseline-audio" / "resumed-run"
     resumed_history = json.loads(
-        (resumed_run_dir / "metrics" / "train_metrics.json").read_text(
-            encoding="utf-8"
-        )
+        (resumed_run_dir / "metrics" / "train_metrics.json").read_text(encoding="utf-8")
     )
 
     assert [row["epoch"] for row in resumed_history] == [1, 2]
@@ -592,9 +591,5 @@ def test_audio_video_ensemble_writes_comparison_outputs(tmp_path: Path) -> None:
     run_dir = tmp_path / "runs" / "baseline-ensemble" / "ensemble-test-run"
     assert (run_dir / "metrics" / "test_ensemble_metrics.json").is_file()
     assert (run_dir / "metrics" / "test_model_comparison.json").is_file()
-    assert (
-        run_dir / "predictions" / "test_ensemble_comparison.csv"
-    ).is_file()
-    assert (
-        run_dir / "plots" / "test_ensemble_confusion_matrix.svg"
-    ).is_file()
+    assert (run_dir / "predictions" / "test_ensemble_comparison.csv").is_file()
+    assert (run_dir / "plots" / "test_ensemble_confusion_matrix.svg").is_file()

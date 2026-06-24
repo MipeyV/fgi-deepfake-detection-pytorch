@@ -2,9 +2,9 @@ from pathlib import Path
 
 import pytest
 import torch
+from tests.data.helpers import create_clip, write_manifest
 
 from src.data.dataloader import create_dataloader
-from tests.data.helpers import create_clip, write_manifest
 
 
 def test_create_data_loader(tmp_path: Path) -> None:

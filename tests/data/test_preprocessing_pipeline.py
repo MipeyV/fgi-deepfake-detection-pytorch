@@ -96,18 +96,10 @@ def test_preprocess_video_removes_temporary_frames_dir(
     ) -> None:
         (clip_path / "audio.wav").touch()
 
-    monkeypatch.setattr(
-        "src.data.preprocessing_pipeline.normalize_video", fake_normalize_video
-    )
-    monkeypatch.setattr(
-        "src.data.preprocessing_pipeline.extract_frames", fake_extract_frames
-    )
-    monkeypatch.setattr(
-        "src.data.preprocessing_pipeline.extract_audio", fake_extract_audio
-    )
-    monkeypatch.setattr(
-        "src.data.preprocessing_pipeline.create_audio_clip", fake_create_audio_clip
-    )
+    monkeypatch.setattr("src.data.preprocessing_pipeline.normalize_video", fake_normalize_video)
+    monkeypatch.setattr("src.data.preprocessing_pipeline.extract_frames", fake_extract_frames)
+    monkeypatch.setattr("src.data.preprocessing_pipeline.extract_audio", fake_extract_audio)
+    monkeypatch.setattr("src.data.preprocessing_pipeline.create_audio_clip", fake_create_audio_clip)
 
     clip_paths = preprocess_video(
         video_item=video_item,

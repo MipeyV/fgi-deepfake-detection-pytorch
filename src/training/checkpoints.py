@@ -9,7 +9,6 @@ import torch
 from torch import nn
 from torch.optim import Optimizer
 
-
 __all__ = [
     "checkpoint_metric_is_better",
     "load_model_checkpoint",
@@ -113,9 +112,7 @@ def load_training_checkpoint(
     checkpoint = load_model_checkpoint(model, checkpoint_path)
 
     if "optimizer_state_dict" not in checkpoint:
-        raise ValueError(
-            f"Checkpoint does not contain optimizer state: {checkpoint_path}"
-        )
+        raise ValueError(f"Checkpoint does not contain optimizer state: {checkpoint_path}")
 
     optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
     return checkpoint

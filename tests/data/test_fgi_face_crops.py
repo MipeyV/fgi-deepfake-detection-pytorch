@@ -3,6 +3,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 from PIL import Image
+from tests.data.helpers import create_clip, write_manifest
 
 from src.data.fgi_face_crops import (
     FaceBox,
@@ -12,7 +13,6 @@ from src.data.fgi_face_crops import (
     stabilize_face_box,
     write_face_crop_contact_sheet,
 )
-from tests.data.helpers import create_clip, write_manifest
 
 
 def fixed_detector(image: Image.Image) -> list[FaceBox]:

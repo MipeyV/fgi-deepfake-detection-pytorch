@@ -7,7 +7,6 @@ from torch import Tensor, tensor
 
 from src.data.dataset import pil_to_tensor
 
-
 FrameTransform = Callable[[Image.Image], Tensor]
 
 

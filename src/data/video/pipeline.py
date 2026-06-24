@@ -73,9 +73,7 @@ def build_video_input_pipeline(video_config: dict) -> VideoInputPipeline:
     preprocessing_name = preprocessing_config["name"]
 
     if preprocessing_name == "resize_square":
-        frame_transform = build_resize_square_transform(
-            preprocessing_config["frame_size"]
-        )
+        frame_transform = build_resize_square_transform(preprocessing_config["frame_size"])
     elif preprocessing_name == "resize_normalize":
         frame_transform = build_resize_normalize_transform(
             frame_size=preprocessing_config["frame_size"],
@@ -88,8 +86,6 @@ def build_video_input_pipeline(video_config: dict) -> VideoInputPipeline:
             crop_size=preprocessing_config["crop_size"],
         )
     else:
-        raise ValueError(
-            f"Unsupported video preprocessing: {preprocessing_name}"
-        )
+        raise ValueError(f"Unsupported video preprocessing: {preprocessing_name}")
 
     return VideoInputPipeline(frame_transform=frame_transform)

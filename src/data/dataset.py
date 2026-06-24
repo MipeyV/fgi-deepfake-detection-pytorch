@@ -1,11 +1,11 @@
+import wave
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import torch
-import wave
-
 from PIL import Image
 from torch.utils.data import Dataset
-from pathlib import Path
 
 
 def pil_to_tensor(image: Image.Image) -> torch.Tensor:
@@ -15,12 +15,33 @@ def pil_to_tensor(image: Image.Image) -> torch.Tensor:
 
 
 class DeepFakeClipDataset(Dataset):
+    """Dataset for preprocessed deepfake clips listed in a manifest.
+
+    Args:
+        manifest_path: Path to the CSV manifest containing clip paths and labels.
+        frame_transform: Optional transform applied to each loaded frame.
+        include_frames: Whether to load video frames for each sample.
+
+    Raises:
+        ValueError: If required manifest columns are missing or labels are invalid.
+    """
+
     def __init__(
         self,
         manifest_path: str | Path,
         frame_transform=None,
         include_frames: bool = True,
     ):
+        """Initialize manifest metadata and sample loading options.
+
+        Args:
+            manifest_path: Path to the CSV manifest containing clip paths and labels.
+            frame_transform: Optional transform applied to each loaded frame.
+            include_frames: Whether to load video frames for each sample.
+
+        Raises:
+            ValueError: If required manifest columns are missing or labels are invalid.
+        """
         self.manifest_path = Path(manifest_path)
         self.samples = pd.read_csv(
             self.manifest_path,
@@ -36,7 +57,6 @@ class DeepFakeClipDataset(Dataset):
         self.label_to_idx = {"real": 0, "fake": 1}
         self._validate_manifest()
 
-
     def _validate_manifest(self) -> None:
         """Validate that the manifest contains the required columns and valid labels.
 
@@ -47,9 +67,7 @@ class DeepFakeClipDataset(Dataset):
         missing_columns = required_columns - set(self.samples.columns)
 
         if missing_columns:
-            raise ValueError(
-                f"Manifest is missing required columns: {sorted(missing_columns)}"
-            )
+            raise ValueError(f"Manifest is missing required columns: {sorted(missing_columns)}")
 
         valid_labels = set(self.label_to_idx)
         invalid_labels = set(self.samples["label"]) - valid_labels
@@ -57,24 +75,23 @@ class DeepFakeClipDataset(Dataset):
         if invalid_labels:
             raise ValueError(f"Manifest contains invalid labels: {sorted(invalid_labels)}")
 
-
     def __len__(self) -> int:
         """Return the total number of samples in the dataset.
 
         Returns:
-            int: The number of samples.
+            Number of samples.
         """
         return len(self.samples)
-    
 
     def __getitem__(self, idx: int) -> dict:
         """Get a sample from the dataset at the specified index.
 
         Args:
-            idx (int): The index of the sample to retrieve.
+            idx: Index of the sample to retrieve.
 
         Returns:
-            dict: A dictionary containing frames, label index, clip path, video ID, and clip ID.
+            Dictionary containing frames, audio, label index, clip path, video ID,
+            and clip ID.
         """
         sample = self.samples.iloc[idx]
 
@@ -94,17 +111,16 @@ class DeepFakeClipDataset(Dataset):
         sample_dict["audio"] = self.load_audio_tensor(clip_path)
 
         return sample_dict
-    
 
     def load_frames_tensor(self, clip_path: str | Path) -> torch.Tensor:
         """Load video frames from the given clip path.
 
         Args:
-            clip_path (str): The path to the video clip.
+            clip_path: Path to the video clip directory.
 
         Returns:
-            torch.Tensor: A tensor containing the video frames.
-        
+            Tensor containing the video frames.
+
         Raises:
             FileNotFoundError: If the clip path does not exist or if no frames are found.
         """
@@ -112,12 +128,12 @@ class DeepFakeClipDataset(Dataset):
 
         if not clip_path.is_dir():
             raise FileNotFoundError(f"Clip directory does not exist: {clip_path}")
-        
+
         frame_paths = sorted(clip_path.glob("*.jpg"))
 
         if not frame_paths:
             raise FileNotFoundError(f"No frames found in clip directory: {clip_path}")
-        
+
         frames = []
 
         for frame_path in frame_paths:
@@ -129,16 +145,15 @@ class DeepFakeClipDataset(Dataset):
 
         return torch.stack(frames)
 
-    
     def load_audio_tensor(self, clip_path: str | Path) -> torch.Tensor:
         """Load audio data from the given path and convert it to a tensor using wave library.
 
         Args:
-            clip_path (str): The path to the video clip.
-        
+            clip_path: Path to the video clip directory.
+
         Returns:
-            torch.Tensor: A tensor containing the audio data.
-        
+            Tensor containing the audio data.
+
         Raises:
             FileNotFoundError: If the audio file does not exist.
         """
@@ -146,7 +161,7 @@ class DeepFakeClipDataset(Dataset):
 
         if not audio_path.is_file():
             raise FileNotFoundError(f"Audio file does not exist: {audio_path}")
-        
+
         with wave.open(str(audio_path), "rb") as wav_file:
             num_channels = wav_file.getnchannels()
             num_frames = wav_file.getnframes()
@@ -154,10 +169,10 @@ class DeepFakeClipDataset(Dataset):
 
         audio_array = np.frombuffer(raw_audio, dtype=np.int16)
         audio_array = audio_array / 32768.0  # Normalize to [-1, 1]
-        
+
         if num_channels > 1:
             audio_array = audio_array.reshape(-1, num_channels).T
         else:
             audio_array = audio_array.reshape(1, -1)
-        
+
         return torch.from_numpy(audio_array).float()

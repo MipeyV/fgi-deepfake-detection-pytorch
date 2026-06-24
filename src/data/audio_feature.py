@@ -5,7 +5,6 @@ from __future__ import annotations
 import torch
 from torch import nn
 
-
 __all__ = [
     "MelSpectrogramExtractor",
     "build_audio_feature_extractor",
@@ -152,6 +151,23 @@ class MelSpectrogramExtractor(nn.Module):
         log_scale: bool = True,
         eps: float = 1e-10,
     ) -> None:
+        """Initialize mel filterbank, STFT window, and validation settings.
+
+        Args:
+            sample_rate: Audio sampling rate in Hertz.
+            n_mels: Number of mel bands to produce.
+            n_fft: FFT window size.
+            hop_length: Number of samples between adjacent STFT windows.
+            win_length: Window length in samples. Defaults to ``n_fft``.
+            f_min: Minimum mel filter frequency in Hertz.
+            f_max: Maximum mel filter frequency in Hertz. Defaults to Nyquist.
+            power: Exponent applied to the magnitude spectrogram.
+            log_scale: Whether to apply logarithmic compression.
+            eps: Small value used for numerical stability in log compression.
+
+        Raises:
+            ValueError: If numeric parameters are invalid.
+        """
         super().__init__()
 
         window_length = n_fft if win_length is None else win_length

@@ -130,9 +130,7 @@ class FGIVideoEncoder(nn.Module):
             ValueError: If frames are not five-dimensional or not RGB.
         """
         if frames.ndim != 5:
-            raise ValueError(
-                "FGIVideoEncoder expects [batch, time, channels, height, width]"
-            )
+            raise ValueError("FGIVideoEncoder expects [batch, time, channels, height, width]")
         if frames.shape[2] != 3:
             raise ValueError("FGIVideoEncoder expects 3-channel RGB frames")
 

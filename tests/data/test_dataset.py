@@ -2,9 +2,9 @@ from pathlib import Path
 
 import pytest
 import torch
+from tests.data.helpers import create_clip, write_manifest
 
 from src.data.dataset import DeepFakeClipDataset
-from tests.data.helpers import create_clip, write_manifest
 
 
 def test_dataset_loads_clip_frames_and_audio_and_metadata(tmp_path: Path) -> None:

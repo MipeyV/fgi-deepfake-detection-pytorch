@@ -10,7 +10,6 @@ import yaml
 from src.data.video import validate_video_preprocessing_config
 from src.models.baselines.video import validate_video_model_config
 
-
 Config = dict[str, Any]
 
 __all__ = [
@@ -91,9 +90,7 @@ def _require_sections(config: Config, required_sections: set[str]) -> None:
     missing_sections = required_sections - set(config)
 
     if missing_sections:
-        raise ValueError(
-            f"Config is missing required sections: {sorted(missing_sections)}"
-        )
+        raise ValueError(f"Config is missing required sections: {sorted(missing_sections)}")
 
 
 def _require_keys(section: Config, section_name: str, required_keys: set[str]) -> None:
@@ -113,9 +110,7 @@ def _require_keys(section: Config, section_name: str, required_keys: set[str]) -
     missing_keys = required_keys - set(section)
 
     if missing_keys:
-        raise ValueError(
-            f"Config section '{section_name}' is missing keys: {sorted(missing_keys)}"
-        )
+        raise ValueError(f"Config section '{section_name}' is missing keys: {sorted(missing_keys)}")
 
 
 def _require_positive_number(value: int | float, key_path: str) -> None:
@@ -206,8 +201,7 @@ def validate_audio_baseline_config(config: Config) -> None:
     expected_label_mapping = {"real": 0, "fake": 1}
     if config["data"]["label_mapping"] != expected_label_mapping:
         raise ValueError(
-            "data.label_mapping must be {'real': 0, 'fake': 1} "
-            "for the baseline audio task"
+            "data.label_mapping must be {'real': 0, 'fake': 1} for the baseline audio task"
         )
 
     _require_positive_number(config["audio"]["sample_rate"], "audio.sample_rate")
@@ -259,8 +253,7 @@ def validate_video_baseline_config(config: Config) -> None:
     expected_label_mapping = {"real": 0, "fake": 1}
     if config["data"]["label_mapping"] != expected_label_mapping:
         raise ValueError(
-            "data.label_mapping must be {'real': 0, 'fake': 1} "
-            "for the baseline video task"
+            "data.label_mapping must be {'real': 0, 'fake': 1} for the baseline video task"
         )
 
     validate_video_model_config(config["model"])

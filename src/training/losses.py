@@ -25,9 +25,7 @@ def compute_balanced_class_weights(
     for label, class_index in label_mapping.items():
         class_count = int((samples["label"] == label).sum())
         if class_count == 0:
-            raise ValueError(
-                f"Cannot compute balanced class weights: class '{label}' is absent"
-            )
+            raise ValueError(f"Cannot compute balanced class weights: class '{label}' is absent")
         weights[class_index] = num_samples / (num_classes * class_count)
 
     return weights
@@ -55,15 +53,11 @@ def build_classification_criterion(
     elif isinstance(class_weights_config, list):
         class_weights = torch.tensor(class_weights_config, dtype=torch.float32)
         if class_weights.numel() != len(label_mapping):
-            raise ValueError(
-                "training.loss.class_weights must contain one weight per class"
-            )
+            raise ValueError("training.loss.class_weights must contain one weight per class")
         if not torch.all(class_weights > 0):
             raise ValueError("training.loss.class_weights must be strictly positive")
     else:
-        raise ValueError(
-            "training.loss.class_weights must be 'balanced', 'none', or a list"
-        )
+        raise ValueError("training.loss.class_weights must be 'balanced', 'none', or a list")
 
     if class_weights is not None:
         class_weights = class_weights.to(device)

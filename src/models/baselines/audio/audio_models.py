@@ -7,7 +7,6 @@ from collections.abc import Sequence
 import torch
 from torch import nn
 
-
 __all__ = ["AudioCNNBaseline", "ConvBlock", "build_audio_model"]
 
 
@@ -51,6 +50,15 @@ class ConvBlock(nn.Module):
     """
 
     def __init__(self, in_channels: int, out_channels: int) -> None:
+        """Initialize convolution, normalization, activation, and pooling layers.
+
+        Args:
+            in_channels: Number of input feature channels.
+            out_channels: Number of output feature channels produced by the block.
+
+        Raises:
+            ValueError: If either channel count is not strictly positive.
+        """
         super().__init__()
 
         _validate_positive_int(in_channels, "in_channels")
@@ -102,6 +110,19 @@ class AudioCNNBaseline(nn.Module):
         dense_channels: Sequence[int] = (256, 128),
         dropout: float = 0.3,
     ) -> None:
+        """Initialize convolutional and dense classifier layers.
+
+        Args:
+            input_channels: Number of spectrogram input channels.
+            num_classes: Number of output classes.
+            conv_channels: Output channel sizes for each convolution block.
+            dense_channels: Hidden layer sizes for the classifier head.
+            dropout: Dropout probability used between dense layers.
+
+        Raises:
+            ValueError: If a numeric model parameter is invalid.
+            ValueError: If ``dropout`` is outside the ``[0, 1]`` range.
+        """
         super().__init__()
 
         _validate_positive_int(input_channels, "input_channels")

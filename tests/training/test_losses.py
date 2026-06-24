@@ -12,8 +12,7 @@ from src.training.losses import (
 def write_manifest(path: Path, labels: list[str]) -> None:
     rows = ["clip_path,label,video_id,clip_id"]
     rows.extend(
-        f"/tmp/clip-{index},{label},video-{index},{index:06d}"
-        for index, label in enumerate(labels)
+        f"/tmp/clip-{index},{label},video-{index},{index:06d}" for index, label in enumerate(labels)
     )
     path.write_text("\n".join(rows), encoding="utf-8")
 

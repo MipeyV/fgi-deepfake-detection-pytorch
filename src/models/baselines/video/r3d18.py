@@ -6,7 +6,6 @@ from torchvision.models.video import R3D_18_Weights, r3d_18
 
 from src.models.baselines.video._validation import validate_positive_int
 
-
 R3D18_KINETICS_MEAN = (0.43216, 0.394666, 0.37645)
 R3D18_KINETICS_STD = (0.22803, 0.22145, 0.216989)
 
@@ -45,9 +44,7 @@ class R3D18VideoClassifier(nn.Module):
         elif normalized_weights == "kinetics400_v1":
             torchvision_weights = R3D_18_Weights.KINETICS400_V1
         else:
-            raise ValueError(
-                "R3D-18 weights must be 'none' or 'kinetics400_v1'"
-            )
+            raise ValueError("R3D-18 weights must be 'none' or 'kinetics400_v1'")
 
         self.num_classes = num_classes
         self.weights = normalized_weights

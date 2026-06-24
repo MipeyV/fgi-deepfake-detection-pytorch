@@ -13,13 +13,13 @@ from src.config import (
 )
 from src.data.audio_feature import build_audio_feature_extractor
 from src.data.dataloader import create_dataloader
+from src.data.fgi import build_fgi_input_pipeline
 from src.data.fgi_face_crops import (
     OpenCVHaarFaceDetector,
     OpenCVYuNetFaceDetector,
     create_fgi_face_crop_dataset,
     write_face_crop_contact_sheet,
 )
-from src.data.fgi import build_fgi_input_pipeline
 from src.data.fgi_multimodal import validate_fgi_multimodal_config
 from src.data.preprocessing_pipeline import preprocess_dataset, write_manifest
 from src.data.video import build_video_input_pipeline
@@ -41,8 +41,8 @@ from src.evaluation.plots import (
     plot_training_history_svg,
 )
 from src.models.baselines.audio.audio_models import build_audio_model
-from src.models.fgi import build_fgi_encoders, build_fgi_model
 from src.models.baselines.video import build_video_model
+from src.models.fgi import build_fgi_encoders, build_fgi_model
 from src.runs import create_run_context
 from src.training.checkpoints import (
     checkpoint_metric_is_better,
@@ -65,6 +65,11 @@ from src.training.trainer import (
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse command-line arguments for the experiment pipeline.
+
+    Returns:
+        Parsed command-line arguments with one configured subcommand.
+    """
     parser = argparse.ArgumentParser(description="FGI deepfake detection pipeline")
 
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -293,9 +298,7 @@ def _write_test_evaluation(
     """Write test metrics, predictions, and confusion matrix into a training run."""
     predictions_path = run_context.predictions_dir / "test_predictions.csv"
     metrics_path = run_context.metrics_dir / "test_metrics.json"
-    video_predictions_path = (
-        run_context.predictions_dir / "test_video_predictions.csv"
-    )
+    video_predictions_path = run_context.predictions_dir / "test_video_predictions.csv"
     video_metrics_path = run_context.metrics_dir / "test_video_metrics.json"
     confusion_matrix_path = run_context.plots_dir / "test_confusion_matrix.svg"
     roc_curve_path = run_context.plots_dir / "test_roc_curve.svg"
@@ -391,9 +394,7 @@ def _write_split_evaluation(
 ) -> tuple[Path, Path, Path]:
     predictions_path = run_context.predictions_dir / f"{split}_predictions.csv"
     metrics_path = run_context.metrics_dir / f"{split}_metrics.json"
-    video_predictions_path = (
-        run_context.predictions_dir / f"{split}_video_predictions.csv"
-    )
+    video_predictions_path = run_context.predictions_dir / f"{split}_video_predictions.csv"
     video_metrics_path = run_context.metrics_dir / f"{split}_video_metrics.json"
     confusion_matrix_path = run_context.plots_dir / f"{split}_confusion_matrix.svg"
     roc_curve_path = run_context.plots_dir / f"{split}_roc_curve.svg"
@@ -438,9 +439,7 @@ def _restore_training_state(
 
     if history_path.is_file():
         history = json.loads(history_path.read_text(encoding="utf-8"))
-        history = [
-            row for row in history if int(row.get("epoch", 0)) <= start_epoch
-        ]
+        history = [row for row in history if int(row.get("epoch", 0)) <= start_epoch]
     else:
         metrics = checkpoint.get("metrics")
         history = [metrics] if isinstance(metrics, dict) else []
@@ -521,8 +520,8 @@ def train_audio_baseline(args: argparse.Namespace) -> None:
         print(f"Class weights: {criterion.weight.detach().cpu().tolist()}")
 
     resume_path = getattr(args, "resume", None)
-    start_epoch, history, resumed_metric_name, best_metric_value = (
-        _restore_training_state(model, optimizer, resume_path, run_context)
+    start_epoch, history, resumed_metric_name, best_metric_value = _restore_training_state(
+        model, optimizer, resume_path, run_context
     )
     metrics_path = run_context.metrics_dir / "train_metrics.json"
     if history:
@@ -626,9 +625,7 @@ def train_audio_baseline(args: argparse.Namespace) -> None:
             break
 
     if not history:
-        raise ValueError(
-            f"No epochs to train: checkpoint epoch {start_epoch}, target {epochs}"
-        )
+        raise ValueError(f"No epochs to train: checkpoint epoch {start_epoch}, target {epochs}")
     write_json(metrics_path, history)
     _write_training_plots(metrics_path, run_context.plots_dir)
     _print_training_outputs(run_context.run_dir, metrics_path, run_context.plots_dir)
@@ -648,9 +645,7 @@ def train_audio_baseline(args: argparse.Namespace) -> None:
         calibration = None
         if decision_threshold is None:
             if val_loader is None:
-                raise ValueError(
-                    "Threshold calibration requires a validation manifest"
-                )
+                raise ValueError("Threshold calibration requires a validation manifest")
             validation_result = evaluate_audio_classifier(
                 model=model,
                 feature_extractor=feature_extractor,
@@ -663,9 +658,7 @@ def train_audio_baseline(args: argparse.Namespace) -> None:
                 config,
                 allow_incomplete=args.max_batches is not None,
             )
-            decision_threshold = (
-                calibration.threshold if calibration is not None else 0.5
-            )
+            decision_threshold = calibration.threshold if calibration is not None else 0.5
         result = evaluate_audio_classifier(
             model=model,
             feature_extractor=feature_extractor,
@@ -724,8 +717,8 @@ def train_video_baseline(args: argparse.Namespace) -> None:
         print(f"Class weights: {criterion.weight.detach().cpu().tolist()}")
 
     resume_path = getattr(args, "resume", None)
-    start_epoch, history, resumed_metric_name, best_metric_value = (
-        _restore_training_state(model, optimizer, resume_path, run_context)
+    start_epoch, history, resumed_metric_name, best_metric_value = _restore_training_state(
+        model, optimizer, resume_path, run_context
     )
     metrics_path = run_context.metrics_dir / "train_metrics.json"
     if history:
@@ -827,9 +820,7 @@ def train_video_baseline(args: argparse.Namespace) -> None:
             break
 
     if not history:
-        raise ValueError(
-            f"No epochs to train: checkpoint epoch {start_epoch}, target {epochs}"
-        )
+        raise ValueError(f"No epochs to train: checkpoint epoch {start_epoch}, target {epochs}")
     write_json(metrics_path, history)
     _write_training_plots(metrics_path, run_context.plots_dir)
     _print_training_outputs(run_context.run_dir, metrics_path, run_context.plots_dir)
@@ -848,9 +839,7 @@ def train_video_baseline(args: argparse.Namespace) -> None:
         calibration = None
         if decision_threshold is None:
             if val_loader is None:
-                raise ValueError(
-                    "Threshold calibration requires a validation manifest"
-                )
+                raise ValueError("Threshold calibration requires a validation manifest")
             validation_result = evaluate_video_classifier(
                 model=model,
                 dataloader=val_loader,
@@ -862,9 +851,7 @@ def train_video_baseline(args: argparse.Namespace) -> None:
                 config,
                 allow_incomplete=args.max_batches is not None,
             )
-            decision_threshold = (
-                calibration.threshold if calibration is not None else 0.5
-            )
+            decision_threshold = calibration.threshold if calibration is not None else 0.5
         result = evaluate_video_classifier(
             model=model,
             dataloader=test_loader,
@@ -919,13 +906,11 @@ def train_fgi_classifier(args: argparse.Namespace) -> None:
     if criterion.weight is not None:
         print(f"Class weights: {criterion.weight.detach().cpu().tolist()}")
 
-    start_epoch, history, resumed_metric_name, best_metric_value = (
-        _restore_training_state(
-            model,
-            optimizer,
-            getattr(args, "resume", None),
-            run_context,
-        )
+    start_epoch, history, resumed_metric_name, best_metric_value = _restore_training_state(
+        model,
+        optimizer,
+        getattr(args, "resume", None),
+        run_context,
     )
     metrics_path = run_context.metrics_dir / "train_metrics.json"
     if history:
@@ -1030,9 +1015,7 @@ def train_fgi_classifier(args: argparse.Namespace) -> None:
             break
 
     if not history:
-        raise ValueError(
-            f"No epochs to train: checkpoint epoch {start_epoch}, target {epochs}"
-        )
+        raise ValueError(f"No epochs to train: checkpoint epoch {start_epoch}, target {epochs}")
     write_json(metrics_path, history)
     _write_training_plots(metrics_path, run_context.plots_dir)
     _print_training_outputs(run_context.run_dir, metrics_path, run_context.plots_dir)
@@ -1051,9 +1034,7 @@ def train_fgi_classifier(args: argparse.Namespace) -> None:
         calibration = None
         if decision_threshold is None:
             if val_loader is None:
-                raise ValueError(
-                    "Threshold calibration requires a validation manifest"
-                )
+                raise ValueError("Threshold calibration requires a validation manifest")
             validation_result = evaluate_fgi_classifier(
                 model=model,
                 dataloader=val_loader,
@@ -1065,9 +1046,7 @@ def train_fgi_classifier(args: argparse.Namespace) -> None:
                 config,
                 allow_incomplete=args.max_batches is not None,
             )
-            decision_threshold = (
-                calibration.threshold if calibration is not None else 0.5
-            )
+            decision_threshold = calibration.threshold if calibration is not None else 0.5
         result = evaluate_fgi_classifier(
             model=model,
             dataloader=test_loader,
@@ -1122,13 +1101,11 @@ def _obsolete_train_fgi_classifier(args: argparse.Namespace) -> None:
     if criterion.weight is not None:
         print(f"Class weights: {criterion.weight.detach().cpu().tolist()}")
 
-    start_epoch, history, resumed_metric_name, best_metric_value = (
-        _restore_training_state(
-            model,
-            optimizer,
-            getattr(args, "resume", None),
-            run_context,
-        )
+    start_epoch, history, resumed_metric_name, best_metric_value = _restore_training_state(
+        model,
+        optimizer,
+        getattr(args, "resume", None),
+        run_context,
     )
     metrics_path = run_context.metrics_dir / "train_metrics.json"
     if history:
@@ -1233,9 +1210,7 @@ def _obsolete_train_fgi_classifier(args: argparse.Namespace) -> None:
             break
 
     if not history:
-        raise ValueError(
-            f"No epochs to train: checkpoint epoch {start_epoch}, target {epochs}"
-        )
+        raise ValueError(f"No epochs to train: checkpoint epoch {start_epoch}, target {epochs}")
     write_json(metrics_path, history)
     _write_training_plots(metrics_path, run_context.plots_dir)
     _print_training_outputs(run_context.run_dir, metrics_path, run_context.plots_dir)
@@ -1327,9 +1302,7 @@ def evaluate_audio_baseline(args: argparse.Namespace) -> None:
             config,
             allow_incomplete=args.max_batches is not None,
         )
-        decision_threshold = (
-            calibration.threshold if calibration is not None else 0.5
-        )
+        decision_threshold = calibration.threshold if calibration is not None else 0.5
     result = evaluate_audio_classifier(
         model=model,
         feature_extractor=feature_extractor,
@@ -1338,13 +1311,11 @@ def evaluate_audio_baseline(args: argparse.Namespace) -> None:
         max_batches=args.max_batches,
         decision_threshold=decision_threshold,
     )
-    predictions_path, metrics_path, confusion_matrix_path = (
-        _write_split_evaluation(
-            result,
-            run_context,
-            args.split,
-            calibration,
-        )
+    predictions_path, metrics_path, confusion_matrix_path = _write_split_evaluation(
+        result,
+        run_context,
+        args.split,
+        calibration,
     )
 
     print(
@@ -1414,9 +1385,7 @@ def evaluate_video_baseline(args: argparse.Namespace) -> None:
             config,
             allow_incomplete=args.max_batches is not None,
         )
-        decision_threshold = (
-            calibration.threshold if calibration is not None else 0.5
-        )
+        decision_threshold = calibration.threshold if calibration is not None else 0.5
     result = evaluate_video_classifier(
         model=model,
         dataloader=dataloader,
@@ -1424,13 +1393,11 @@ def evaluate_video_baseline(args: argparse.Namespace) -> None:
         max_batches=args.max_batches,
         decision_threshold=decision_threshold,
     )
-    predictions_path, metrics_path, confusion_matrix_path = (
-        _write_split_evaluation(
-            result,
-            run_context,
-            args.split,
-            calibration,
-        )
+    predictions_path, metrics_path, confusion_matrix_path = _write_split_evaluation(
+        result,
+        run_context,
+        args.split,
+        calibration,
     )
 
     print(
@@ -1495,9 +1462,7 @@ def evaluate_fgi_classifier_run(args: argparse.Namespace) -> None:
             config,
             allow_incomplete=args.max_batches is not None,
         )
-        decision_threshold = (
-            calibration.threshold if calibration is not None else 0.5
-        )
+        decision_threshold = calibration.threshold if calibration is not None else 0.5
     result = evaluate_fgi_classifier(
         model=model,
         dataloader=dataloader,
@@ -1505,13 +1470,11 @@ def evaluate_fgi_classifier_run(args: argparse.Namespace) -> None:
         max_batches=args.max_batches,
         decision_threshold=decision_threshold,
     )
-    predictions_path, metrics_path, confusion_matrix_path = (
-        _write_split_evaluation(
-            result,
-            run_context,
-            args.split,
-            calibration,
-        )
+    predictions_path, metrics_path, confusion_matrix_path = _write_split_evaluation(
+        result,
+        run_context,
+        args.split,
+        calibration,
     )
 
     print(
@@ -1559,13 +1522,9 @@ def _obsolete_evaluate_fgi_classifier_run(args: argparse.Namespace) -> None:
         device=device,
         max_batches=args.max_batches,
     )
-    predictions_path = run_context.predictions_dir / (
-        f"{args.split}_predictions.csv"
-    )
+    predictions_path = run_context.predictions_dir / (f"{args.split}_predictions.csv")
     metrics_path = run_context.metrics_dir / f"{args.split}_metrics.json"
-    confusion_matrix_path = run_context.plots_dir / (
-        f"{args.split}_confusion_matrix.svg"
-    )
+    confusion_matrix_path = run_context.plots_dir / (f"{args.split}_confusion_matrix.svg")
     write_evaluation_outputs(result, predictions_path, metrics_path)
     plot_confusion_matrix_svg(metrics_path, confusion_matrix_path)
 
@@ -1594,9 +1553,7 @@ def evaluate_audio_video_baseline(args: argparse.Namespace) -> None:
     audio_manifest = Path(audio_config["data"][data_key])
     video_manifest = Path(video_config["data"][data_key])
     if audio_manifest.resolve() != video_manifest.resolve():
-        raise ValueError(
-            "Audio and video ensemble configs must use the same split manifest"
-        )
+        raise ValueError("Audio and video ensemble configs must use the same split manifest")
 
     run_context = create_run_context(
         config=ensemble_config,
@@ -1606,10 +1563,7 @@ def evaluate_audio_video_baseline(args: argparse.Namespace) -> None:
     )
     device_name = args.device or audio_config["training"]["device"]
     device = resolve_device(device_name)
-    batch_size = (
-        args.batch_size
-        or ensemble_config["evaluation"]["batch_size"]
-    )
+    batch_size = args.batch_size or ensemble_config["evaluation"]["batch_size"]
     input_pipeline = build_video_input_pipeline(video_config["video"])
     dataloader = input_pipeline.create_dataloader(
         manifest_path=audio_manifest,
@@ -1634,17 +1588,11 @@ def evaluate_audio_video_baseline(args: argparse.Namespace) -> None:
         device=device,
         max_batches=args.max_batches,
     )
-    predictions_path = (
-        run_context.predictions_dir / f"{split}_ensemble_comparison.csv"
-    )
+    predictions_path = run_context.predictions_dir / f"{split}_ensemble_comparison.csv"
     metrics_path = run_context.metrics_dir / f"{split}_ensemble_metrics.json"
     comparison_path = run_context.metrics_dir / f"{split}_model_comparison.json"
-    confusion_matrix_path = (
-        run_context.plots_dir / f"{split}_ensemble_confusion_matrix.svg"
-    )
-    roc_comparison_path = (
-        run_context.plots_dir / f"{split}_audio_video_ensemble_roc.svg"
-    )
+    confusion_matrix_path = run_context.plots_dir / f"{split}_ensemble_confusion_matrix.svg"
+    roc_comparison_path = run_context.plots_dir / f"{split}_audio_video_ensemble_roc.svg"
     write_ensemble_evaluation_outputs(
         result,
         predictions_path,
@@ -1681,6 +1629,7 @@ def evaluate_audio_video_baseline(args: argparse.Namespace) -> None:
 
 
 def main() -> None:
+    """Dispatch the selected pipeline subcommand."""
     args = parse_args()
 
     if args.command == "preprocess":
@@ -1704,9 +1653,7 @@ def main() -> None:
     if args.command == "fgi-face-crops":
         if args.detector == "yunet":
             if args.detector_model is None:
-                raise ValueError(
-                    "--detector-model is required when --detector=yunet"
-                )
+                raise ValueError("--detector-model is required when --detector=yunet")
             detector = OpenCVYuNetFaceDetector(
                 model_path=args.detector_model,
                 score_threshold=args.score_threshold,
@@ -1751,14 +1698,10 @@ def main() -> None:
         batch = next(iter(dataloader))
         print(f"frames shape={tuple(batch['frames'].shape)}")
         print(
-            f"frames range=[{batch['frames'].min().item():.4f}, "
-            f"{batch['frames'].max().item():.4f}]"
+            f"frames range=[{batch['frames'].min().item():.4f}, {batch['frames'].max().item():.4f}]"
         )
         print(f"audio shape={tuple(batch['audio'].shape)}")
-        print(
-            f"audio range=[{batch['audio'].min().item():.4f}, "
-            f"{batch['audio'].max().item():.4f}]"
-        )
+        print(f"audio range=[{batch['audio'].min().item():.4f}, {batch['audio'].max().item():.4f}]")
         print(f"labels shape={tuple(batch['label'].shape)}")
 
     if args.command == "fgi-encoder-smoke":
@@ -1811,10 +1754,7 @@ def main() -> None:
                 batch["audio"].to(device),
             )
         print(f"logits shape={tuple(output.logits.shape)}")
-        print(
-            "inconsistency map shape="
-            f"{tuple(output.inconsistency_map.shape)}"
-        )
+        print(f"inconsistency map shape={tuple(output.inconsistency_map.shape)}")
         if output.attention_map is None:
             print("attention map shape=None")
         else:

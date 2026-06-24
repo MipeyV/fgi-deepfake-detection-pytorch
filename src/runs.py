@@ -11,7 +11,6 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-
 __all__ = [
     "GitSnapshot",
     "RunContext",
@@ -104,6 +103,18 @@ def get_git_snapshot(repo_dir: str | Path = ".") -> GitSnapshot:
     repo_dir = Path(repo_dir)
 
     def run_git(args: list[str]) -> str:
+        """Run a Git command in the target repository.
+
+        Args:
+            args: Git arguments excluding the leading ``git`` executable.
+
+        Returns:
+            Stripped standard output from the Git command.
+
+        Raises:
+            subprocess.CalledProcessError: If the Git command fails.
+            FileNotFoundError: If the Git executable is unavailable.
+        """
         result = subprocess.run(
             ["git", *args],
             cwd=repo_dir,

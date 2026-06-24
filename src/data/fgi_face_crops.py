@@ -68,9 +68,7 @@ class OpenCVHaarFaceDetector:
         if min_face_size <= 0 or max_detection_size <= 0:
             raise ValueError("face and detection sizes must be positive")
 
-        cascade_path = (
-            Path(cv2.data.haarcascades) / "haarcascade_frontalface_default.xml"
-        )
+        cascade_path = Path(cv2.data.haarcascades) / "haarcascade_frontalface_default.xml"
         classifier = cv2.CascadeClassifier(str(cascade_path))
         if classifier.empty():
             raise RuntimeError(f"Failed to load face cascade: {cascade_path}")
@@ -402,9 +400,7 @@ def crop_face_clip(
     if not 0 < min_detection_fraction <= 1:
         raise ValueError("min_detection_fraction must be in (0, 1]")
     if destination_clip.exists():
-        raise FileExistsError(
-            f"Destination clip already exists: {destination_clip}"
-        )
+        raise FileExistsError(f"Destination clip already exists: {destination_clip}")
 
     frame_paths = sorted(source_clip.glob("*.jpg"))
     if not frame_paths:
@@ -488,9 +484,7 @@ def create_fgi_face_crop_dataset(
     if not manifest_path.is_file():
         raise FileNotFoundError(f"Manifest file does not exist: {manifest_path}")
     if output_manifest_path.exists():
-        raise FileExistsError(
-            f"Output manifest already exists: {output_manifest_path}"
-        )
+        raise FileExistsError(f"Output manifest already exists: {output_manifest_path}")
     if missing_face_policy not in {"error", "skip"}:
         raise ValueError("missing_face_policy must be 'error' or 'skip'")
 
@@ -506,20 +500,12 @@ def create_fgi_face_crop_dataset(
     required_columns = {"clip_path", "label", "video_id", "clip_id"}
     missing_columns = required_columns - set(samples.columns)
     if missing_columns:
-        raise ValueError(
-            f"Manifest is missing required columns: {sorted(missing_columns)}"
-        )
+        raise ValueError(f"Manifest is missing required columns: {sorted(missing_columns)}")
 
     processed_rows: list[dict] = []
     skipped_clips = 0
     for row in samples.to_dict(orient="records"):
-        destination_clip = (
-            output_dir
-            / row["label"]
-            / row["video_id"]
-            / "clips"
-            / row["clip_id"]
-        )
+        destination_clip = output_dir / row["label"] / row["video_id"] / "clips" / row["clip_id"]
         try:
             crop_face_clip(
                 source_clip=row["clip_path"],
@@ -530,10 +516,7 @@ def create_fgi_face_crop_dataset(
                 min_detection_fraction=min_detection_fraction,
             )
         except ValueError as error:
-            if (
-                missing_face_policy == "skip"
-                and "Insufficient face detections" in str(error)
-            ):
+            if missing_face_policy == "skip" and "Insufficient face detections" in str(error):
                 skipped_clips += 1
                 continue
             raise
@@ -609,9 +592,7 @@ def write_face_crop_contact_sheet(
     for index, row in enumerate(samples.to_dict(orient="records")):
         frame_paths = sorted(Path(row["clip_path"]).glob("*.jpg"))
         if not frame_paths:
-            raise FileNotFoundError(
-                f"No JPEG frames found in clip: {row['clip_path']}"
-            )
+            raise FileNotFoundError(f"No JPEG frames found in clip: {row['clip_path']}")
         sampled_indices = [0, len(frame_paths) // 2, len(frame_paths) - 1]
         panel_width = thumbnail_size // 3
         thumbnail = Image.new(

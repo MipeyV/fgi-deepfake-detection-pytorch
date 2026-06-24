@@ -57,17 +57,13 @@ class FGILocalInconsistency(nn.Module):
             ValueError: If feature dimensions or aligned axes are invalid.
         """
         if video_features.ndim != 5 or audio_features.ndim != 3:
-            raise ValueError(
-                "FGI features must have shapes [B,D,T,H,W] and [B,D,T]"
-            )
+            raise ValueError("FGI features must have shapes [B,D,T,H,W] and [B,D,T]")
         if video_features.shape[:3] != audio_features.shape:
             raise ValueError("Audio and video feature axes B, D, and T must match")
 
         audio_grid = audio_features.unsqueeze(-1).unsqueeze(-1)
         squared_distance = (video_features - audio_grid).pow(2)
-        return torch.sqrt(
-            squared_distance.sum(dim=(1, 2)) + self.eps
-        )
+        return torch.sqrt(squared_distance.sum(dim=(1, 2)) + self.eps)
 
 
 class FGISpatialAttention(nn.Module):
@@ -115,9 +111,7 @@ class FGISpatialAttention(nn.Module):
             video_embedding,
             audio_embedding,
         )
-        scores = scores / (
-            self.attention_dim * video_features.shape[2]
-        )
+        scores = scores / (self.attention_dim * video_features.shape[2])
         batch_size, height, width = scores.shape
         return F.softmax(
             scores.reshape(batch_size, height * width),
@@ -156,9 +150,7 @@ class FGIInspiredClassifier(nn.Module):
         if num_classes <= 0:
             raise ValueError("num_classes must be greater than 0")
         if attention_mode not in {"multiply", "residual"}:
-            raise ValueError(
-                "attention_mode must be 'multiply' or 'residual'"
-            )
+            raise ValueError("attention_mode must be 'multiply' or 'residual'")
         if not 0 <= dropout <= 1:
             raise ValueError("dropout must be between 0 and 1")
 

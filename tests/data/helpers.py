@@ -1,7 +1,8 @@
-import numpy as np
 import wave
-from PIL import Image
 from pathlib import Path
+
+import numpy as np
+from PIL import Image
 
 
 def create_clip(

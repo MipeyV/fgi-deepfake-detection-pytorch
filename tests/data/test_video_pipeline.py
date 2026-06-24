@@ -1,9 +1,9 @@
 from pathlib import Path
 
 import torch
+from tests.data.helpers import create_clip, write_manifest
 
 from src.data.video import build_video_input_pipeline
-from tests.data.helpers import create_clip, write_manifest
 
 
 def test_resize_square_pipeline_builds_expected_frame_batch(
@@ -72,9 +72,7 @@ def test_resize_normalize_pipeline_uses_configured_rgb_statistics(
 
 def test_video_pipeline_rejects_unknown_preprocessing() -> None:
     try:
-        build_video_input_pipeline(
-            {"preprocessing": {"name": "unknown"}}
-        )
+        build_video_input_pipeline({"preprocessing": {"name": "unknown"}})
     except ValueError as error:
         assert "Unsupported video preprocessing" in str(error)
     else:

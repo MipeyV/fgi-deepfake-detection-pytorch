@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 import torch
+from tests.data.helpers import create_clip, write_manifest
 
 from src.config import load_config
 from src.data.fgi import build_fgi_input_pipeline
@@ -10,7 +11,6 @@ from src.data.fgi_multimodal import (
     validate_fgi_multimodal_config,
 )
 from src.data.video import build_resize_normalize_transform
-from tests.data.helpers import create_clip, write_manifest
 
 
 def make_transform():

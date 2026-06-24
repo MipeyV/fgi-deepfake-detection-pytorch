@@ -2,14 +2,13 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
+from tests.data.helpers import write_split_test_manifest
 
 from src.data.split_manifest import (
     assign_split_from_hashmod,
     hash_video_id,
     split_manifest,
 )
-
-from tests.data.helpers import write_split_test_manifest
 
 
 def test_hash_video_id_is_stable() -> None:

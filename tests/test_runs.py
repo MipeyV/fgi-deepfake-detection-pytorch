@@ -10,9 +10,7 @@ from src.runs import create_run_context, generate_run_id, slugify
 def write_config(tmp_path: Path) -> Path:
     config_path = tmp_path / "config.yaml"
     config_path.write_text(
-        "experiment:\n"
-        "  name: Baseline Audio\n"
-        "  runs_root: runs\n",
+        "experiment:\n  name: Baseline Audio\n  runs_root: runs\n",
         encoding="utf-8",
     )
     return config_path
