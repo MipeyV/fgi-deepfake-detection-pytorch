@@ -178,6 +178,11 @@ The output manifest is written to:
 data/processed/manifest.csv
 ```
 
+With the default settings above, each clip represents one second of video
+(`30` frames at `30` FPS). In the current DFDC subset used for this project,
+each source video produces `10` clips, so the preprocessed videos are uniformly
+estimated at about `10` seconds.
+
 ### 4. Create train/validation/test manifests
 
 Split the global manifest into stable train, validation, and test files. The

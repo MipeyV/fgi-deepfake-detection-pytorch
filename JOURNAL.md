@@ -1241,3 +1241,71 @@ artificiellement plus lourd dans le résultat final.
 ### Validation
 - Suite complète : 146 tests passants.
 - Vérification syntaxique de `main.py` et des modules d'évaluation.
+
+---
+
+## 25 juin 2026 - CI, documentation dataset et analyse des durées
+
+### Qualité et CI
+- Ajout de la configuration Ruff dans `pyproject.toml` :
+  - lint `E`, `F`, `I`, `UP`, `B`,
+  - formatage Ruff,
+  - exclusion des notebooks du lint/format automatique.
+- Ajout du workflow GitHub Actions `.github/workflows/ci.yml`.
+- Le job `Lint, format, and test` installe les dépendances système nécessaires
+  (`ffmpeg`, `libgl1`), installe les dépendances Python, puis exécute :
+  - `ruff check .`,
+  - `ruff format --check .`,
+  - `python -m compileall -q main.py src tests`,
+  - `pytest`.
+- La protection de branche attend désormais ce check avant intégration par PR.
+
+### Organisation du code
+- Réorganisation des modèles en sous-packages plus explicites :
+  - `src/models/baselines/audio/`,
+  - `src/models/baselines/video/`,
+  - `src/models/fgi/`.
+- Séparation plus nette des factories, validations et implémentations vidéo.
+- Adaptation des imports dans le code, les tests et les configurations.
+
+### Documentation README
+- Ajout d'une section de préparation complète du dataset DFDC :
+  - aller sur Kaggle,
+  - créer un compte ou se connecter,
+  - vérifier son identité Kaggle si nécessaire,
+  - rejoindre la compétition et accepter les règles,
+  - télécharger et extraire les données,
+  - préparer les dossiers `real/` et `fake`,
+  - lancer le preprocessing audio-vidéo,
+  - générer les manifests train/validation/test.
+- Ajout d'une étape explicite d'installation de FFmpeg, requis par le
+  preprocessing pour normaliser les vidéos, extraire les frames et extraire
+  l'audio.
+- Ajout d'une note sur les paramètres par défaut du preprocessing :
+  `30` frames à `30` FPS donnent des clips de `1` seconde.
+
+### Analyse dataset
+Le journal mentionnait déjà le notebook `dataset_static_analysis.ipynb` et le
+nombre de clips par vidéo, mais pas encore l'analyse explicite des durées.
+
+- Ajout d'une section `Estimated video durations` dans
+  `notebooks/dataset_static_analysis.ipynb`.
+- Les durées sont estimées à partir du nombre de clips prétraités, sans relire
+  les vidéos brutes.
+- Avec les paramètres actuels, chaque clip vaut `1s`.
+- Vérification sur les manifests courants :
+  - toutes les vidéos ont exactement `10` clips,
+  - les vidéos du subset analysé durent donc environ `10s`,
+  - la durée estimée est uniforme entre `real` et `fake`.
+- Le résumé compact du notebook affiche maintenant :
+  - la durée moyenne estimée par classe,
+  - le range global de durée,
+  - le flag d'uniformité.
+
+### Suivi projet
+- Mise à jour de `SUIVI.md` avec les changements depuis le 13 juin :
+  CI/Ruff, refactor modèles, documentation dataset, analyse des durées et
+  prochaines étapes.
+- Passage du statut global à `5/5 (100%)` pour les modules principaux déjà
+  implémentés, tout en conservant les améliorations expérimentales restantes
+  dans les prochaines étapes.
