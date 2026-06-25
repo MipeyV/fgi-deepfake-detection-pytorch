@@ -7,3 +7,4 @@ ipykernel>=6.29,<7
 pandas>=2.2,<3
 PyYAML>=6.0,<7
 ruff
+pre-commit

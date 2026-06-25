@@ -1251,6 +1251,12 @@ artificiellement plus lourd dans le résultat final.
   - lint `E`, `F`, `I`, `UP`, `B`,
   - formatage Ruff,
   - exclusion des notebooks du lint/format automatique.
+- Ajout de `pre-commit` aux dépendances et d'une configuration
+  `.pre-commit-config.yaml` locale.
+- Les hooks locaux exécutent :
+  - `ruff check --fix`,
+  - `ruff format`,
+  - `pytest`.
 - Ajout du workflow GitHub Actions `.github/workflows/ci.yml`.
 - Le job `Lint, format, and test` installe les dépendances système nécessaires
   (`ffmpeg`, `libgl1`), installe les dépendances Python, puis exécute :
@@ -1259,6 +1265,8 @@ artificiellement plus lourd dans le résultat final.
   - `python -m compileall -q main.py src tests`,
   - `pytest`.
 - La protection de branche attend désormais ce check avant intégration par PR.
+- Objectif : corriger localement les erreurs de lint/format et lancer les tests
+  avant le commit pour éviter des échecs CI GitHub évitables.
 
 ### Organisation du code
 - Réorganisation des modèles en sous-packages plus explicites :
@@ -1281,6 +1289,8 @@ artificiellement plus lourd dans le résultat final.
 - Ajout d'une étape explicite d'installation de FFmpeg, requis par le
   preprocessing pour normaliser les vidéos, extraire les frames et extraire
   l'audio.
+- Ajout des commandes `pre-commit install` et `pre-commit run --all-files` dans
+  le setup local.
 - Ajout d'une note sur les paramètres par défaut du preprocessing :
   `30` frames à `30` FPS donnent des clips de `1` seconde.
 

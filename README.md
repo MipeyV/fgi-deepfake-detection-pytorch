@@ -90,7 +90,18 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 4. Install FFmpeg
+### 4. Install pre-commit hooks
+
+The repository includes local hooks that run Ruff linting, Ruff formatting, and
+the test suite before each commit. They catch the same issues that would
+otherwise fail in CI.
+
+```bash
+pre-commit install
+pre-commit run --all-files
+```
+
+### 5. Install FFmpeg
 
 The preprocessing pipeline calls `ffmpeg` to normalize videos, extract frames,
 and extract audio. Install it before running dataset preprocessing.

@@ -29,6 +29,7 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 - [OK] `requirements.txt` avec dépendances PyTorch + OpenCV + Pandas
 - [OK] `pytest.ini` pour tests unitaires
 - [OK] `pyproject.toml` avec configuration Ruff lint + format
+- [OK] `.pre-commit-config.yaml` pour lancer Ruff et pytest avant commit
 - [OK] GitHub Actions CI avec lint, format, compileall et tests
 - [OK] `README.md` documentant le projet
 - [OK] `.gitkeep` dans tous les dossiers
@@ -106,6 +107,10 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
   - `ruff check .`
   - `ruff format --check .`
   - `python -m compileall -q main.py src tests`
+  - `pytest`
+- [OK] Pre-commit local :
+  - `ruff check --fix`
+  - `ruff format`
   - `pytest`
 
 ### 4. **Données**
@@ -318,11 +323,13 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 
 ### 7. **CI, qualité et documentation**
 - [OK] Workflow GitHub Actions `.github/workflows/ci.yml`
+- [OK] Hooks pre-commit locaux pour éviter les échecs CI évitables
 - [OK] Installation CI de FFmpeg et `libgl1` pour les tests OpenCV/vidéo
 - [OK] Ruff linting activé (`E`, `F`, `I`, `UP`, `B`)
 - [OK] Ruff formatting vérifié en CI
 - [OK] Compilation Python vérifiée avant tests
 - [OK] README mis à jour avec :
+  - installation de `pre-commit`
   - setup FFmpeg
   - téléchargement Kaggle/DFDC
   - préparation des données
@@ -395,6 +402,8 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 
 ### Qualité, CI et formatage
 - [OK] Ajout de Ruff dans `pyproject.toml` pour lint et format.
+- [OK] Ajout de `pre-commit` aux dépendances et d'une configuration locale
+  `.pre-commit-config.yaml`.
 - [OK] Ajout d'un workflow GitHub Actions `CI`.
 - [OK] Le job CI exécute désormais :
   - installation de FFmpeg et `libgl1`
@@ -404,6 +413,8 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
   - `python -m compileall -q main.py src tests`
   - `pytest`
 - [OK] La protection de branche attend maintenant le check `Lint, format, and test`.
+- [OK] Les hooks locaux lancent `ruff check --fix`, `ruff format` et `pytest`
+  avant commit pour réduire les échecs CI liés au style et aux tests.
 
 ### Réorganisation du code modèle
 - [OK] Refactor des modèles en packages plus explicites :
@@ -422,6 +433,7 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
   - lancer `main.py preprocess`
   - créer les manifests train/val/test
 - [OK] README enrichi avec l'installation de FFmpeg.
+- [OK] README enrichi avec l'installation et l'exécution des hooks pre-commit.
 - [OK] README précise que le preprocessing par défaut crée des clips de `1s`
   et que le subset actuel produit `10` clips par vidéo, donc environ `10s`.
 
