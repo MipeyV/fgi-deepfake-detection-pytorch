@@ -28,8 +28,11 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 - [OK] Projet structuré avec modules clairs (`src/data`, `src/models`, `src/training`, `src/evaluation`)
 - [OK] `requirements.txt` avec dépendances PyTorch + OpenCV + Pandas
 - [OK] `pytest.ini` pour tests unitaires
+- [OK] `pyproject.toml` avec configuration Ruff lint + format
+- [OK] GitHub Actions CI avec lint, format, compileall et tests
 - [OK] `README.md` documentant le projet
 - [OK] `.gitkeep` dans tous les dossiers
+- [OK] Organisation des modèles en sous-packages (`baselines/audio`, `baselines/video`, `fgi`)
 
 ### 2. **Pipeline de Prétraitement** (`src/data/`)
 - [OK] **preprocessing_pipeline.py** :
@@ -99,6 +102,11 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
   - `test_dataloader.py`
   - `test_preprocessing_pipeline.py`
   - `test_split_manifest.py`
+- [OK] CI `Lint, format, and test` :
+  - `ruff check .`
+  - `ruff format --check .`
+  - `python -m compileall -q main.py src tests`
+  - `pytest`
 
 ### 4. **Données**
 - [OK] Structure `data/` prête avec sous-dossiers :
@@ -106,6 +114,18 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
   - `data/processed/` (vidéos prétraitées et clips)
   - `data/prepared/` (données préparées)
   - `data/manifests/` (CSV manifests)
+- [OK] Documentation du flux Kaggle/DFDC :
+  - inscription et acceptation de la compétition Kaggle
+  - vérification d'identité Kaggle si nécessaire
+  - installation de FFmpeg avant preprocessing
+  - préparation `real/` / `fake/`
+  - preprocessing initial et création des manifests
+- [OK] Analyse statique enrichie du dataset :
+  - counts clips et vidéos par split/classe
+  - distribution des clips par vidéo
+  - estimation des durées vidéo depuis les clips prétraités
+  - confirmation que le subset courant a `10` clips par vidéo, soit environ `10s`
+  - checks leakage, doublons, labels et chemins manquants
 
 ### 5. **Configuration initiale** (`configs/`)
 - [OK] **baseline_audio.yaml** :
@@ -272,6 +292,7 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 - [OK] `fgi_inspired.yaml` - Configuration FGI train/eval
 - [OK] Loader Python pour lire et valider la config audio baseline
 - [OK] Sélection indépendante de `video.preprocessing.name` et `model.name`
+- [OK] Configuration Ruff centralisée dans `pyproject.toml`
 
 ### 5. **Mise à jour main.py**
 - [OK] Support de la commande `train`
@@ -295,7 +316,21 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 - [OK] Script d'évaluation ensemble
 - [OK] Reprise via la variable `RESUME`
 
-### 7. **Améliorations Futures**
+### 7. **CI, qualité et documentation**
+- [OK] Workflow GitHub Actions `.github/workflows/ci.yml`
+- [OK] Installation CI de FFmpeg et `libgl1` pour les tests OpenCV/vidéo
+- [OK] Ruff linting activé (`E`, `F`, `I`, `UP`, `B`)
+- [OK] Ruff formatting vérifié en CI
+- [OK] Compilation Python vérifiée avant tests
+- [OK] README mis à jour avec :
+  - setup FFmpeg
+  - téléchargement Kaggle/DFDC
+  - préparation des données
+  - preprocessing complet
+  - split manifests
+  - note sur les vidéos uniformes de 10 secondes dans le subset courant
+
+### 8. **Améliorations Futures**
 - [ ] Optimisation des hyperparamètres
 - [ ] Data augmentation cohérente au niveau du clip
 - [ ] Stratégies de régularisation
@@ -329,9 +364,9 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 
 ## Métriques de Progression
 
-**Modules implémentés** : 4/5 (80%)
+**Modules implémentés** : 5/5 (100%)
 - [OK] Data preprocessing & loading (100%)
-- [EN COURS] Models (baselines unimodales terminées, modèle multimodal à faire)
+- [OK] Models (baselines unimodales, R3D-18 et FGI multimodal)
 - [OK] Training (audio/vidéo, checkpoints, reprise et early stopping)
 - [OK] Evaluation (audio, vidéo, ensemble, CSV/JSON et plots)
 - [OK] Configuration system (audio, vidéo et ensemble)
@@ -346,13 +381,58 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 
 ## Prochaines Étapes (Priorité Décroissante)
 
-1. **URGENT** : Générer et contrôler les crops YuNet train/val/test
-2. **URGENT** : Lancer un smoke train FGI sur GPU
-3. **IMPORTANT** : Lancer l'entraînement FGI complet
-4. **IMPORTANT** : Ajouter les pseudo-fakes temporels au train uniquement
-5. **IMPORTANT** : Ajouter les courbes ROC et précision-rappel
-6. **IMPORTANT** : Comparer FGI aux baselines sur les mêmes splits et niveaux
+1. **URGENT** : Contrôler les contact sheets YuNet et le nombre de clips skip
+2. **IMPORTANT** : Comparer FGI aux baselines sur les mêmes splits et niveaux
    clip/vidéo
+3. **IMPORTANT** : Ajouter les pseudo-fakes temporels au train uniquement
+4. **IMPORTANT** : Ajouter les courbes ROC et précision-rappel
+5. **IMPORTANT** : Documenter les résultats expérimentaux finaux dans le README
+   ou un notebook dédié
+
+---
+
+## Mises à jour depuis le 13 juin 2026
+
+### Qualité, CI et formatage
+- [OK] Ajout de Ruff dans `pyproject.toml` pour lint et format.
+- [OK] Ajout d'un workflow GitHub Actions `CI`.
+- [OK] Le job CI exécute désormais :
+  - installation de FFmpeg et `libgl1`
+  - installation des dépendances Python
+  - `ruff check .`
+  - `ruff format --check .`
+  - `python -m compileall -q main.py src tests`
+  - `pytest`
+- [OK] La protection de branche attend maintenant le check `Lint, format, and test`.
+
+### Réorganisation du code modèle
+- [OK] Refactor des modèles en packages plus explicites :
+  - `src/models/baselines/audio/`
+  - `src/models/baselines/video/`
+  - `src/models/fgi/`
+- [OK] Séparation des factories, validations et implémentations vidéo.
+- [OK] Imports adaptés dans les configs, tests et points d'entrée.
+
+### Documentation dataset
+- [OK] README enrichi avec le chemin complet de préparation des données :
+  - rejoindre la compétition Kaggle DFDC
+  - vérifier son identité Kaggle si nécessaire
+  - télécharger/extracter les données
+  - préparer `data/prepared/dfdc/real` et `data/prepared/dfdc/fake`
+  - lancer `main.py preprocess`
+  - créer les manifests train/val/test
+- [OK] README enrichi avec l'installation de FFmpeg.
+- [OK] README précise que le preprocessing par défaut crée des clips de `1s`
+  et que le subset actuel produit `10` clips par vidéo, donc environ `10s`.
+
+### Analyse dataset
+- [OK] Notebook `notebooks/dataset_static_analysis.ipynb` mis à jour.
+- [OK] Ajout des durées vidéo estimées depuis le nombre de clips.
+- [OK] Ajout du range de durée, des durées uniques et du flag d'uniformité.
+- [OK] Confirmation dans l'analyse que les vidéos du subset courant sont
+  uniformes : `10` clips par vidéo, soit environ `10s`.
+- [OK] Le résumé compact affiche maintenant la durée moyenne estimée par classe
+  `real/fake` et le range global.
 
 ---
 
@@ -374,5 +454,5 @@ Ce projet **ne réutilise pas directement le code original**, mais vise à **ré
 
 ---
 
-**Dernière mise à jour** : 13 juin 2026
-**Statut** : Modèle FGI [OK] | Calibration [OK] | Comparaison [À FAIRE]
+**Dernière mise à jour** : 25 juin 2026
+**Statut** : Modèle FGI [OK] | Calibration [OK] | CI/Ruff [OK] | Analyse dataset [OK] | Comparaison [À FAIRE]
