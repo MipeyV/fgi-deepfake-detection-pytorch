@@ -90,6 +90,118 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
+### 4. Install FFmpeg
+
+The preprocessing pipeline calls `ffmpeg` to normalize videos, extract frames,
+and extract audio. Install it before running dataset preprocessing.
+
+On Ubuntu / Debian:
+
+```bash
+sudo apt install ffmpeg
+```
+
+On macOS with Homebrew:
+
+```bash
+brew install ffmpeg
+```
+
+On Windows, install FFmpeg from `https://ffmpeg.org/download.html` and make sure
+the `ffmpeg` command is available in your `PATH`.
+
+## Dataset preparation
+
+The dataset is not tracked in Git. Before running training, download and
+preprocess the Kaggle Deepfake Detection Challenge data.
+
+### 1. Download the Kaggle data
+
+1. Go to the Kaggle competition page:
+   `https://www.kaggle.com/c/deepfake-detection-challenge`
+2. Create or log in to a Kaggle account.
+3. Verify your identity in Kaggle account settings if Kaggle asks for it. This
+   is required before you can properly join some competitions and access their
+   data.
+4. Join the competition and accept the competition rules.
+5. Download the dataset archives, either from the website or with the Kaggle
+   CLI after configuring your Kaggle API token.
+
+Keep the raw downloaded data under `data/raw/`, for example:
+
+```bash
+mkdir -p data/raw/dfdc
+```
+
+After extracting one DFDC part, it should contain the original videos and a
+`metadata.json` file.
+
+### 2. Prepare real and fake video folders
+
+From the repository root, convert each extracted DFDC part into the folder
+layout expected by the preprocessing pipeline:
+
+```bash
+python3 -m src.data.prepare_dfdc \
+  --input-dir data/raw/dfdc/<extracted-part> \
+  --output-dir data/prepared/dfdc
+```
+
+The command copies videos into:
+
+```text
+data/prepared/dfdc/real/
+data/prepared/dfdc/fake/
+```
+
+If you extracted several DFDC parts, run the same command once per extracted
+part, keeping the same `--output-dir`.
+
+### 3. Run the audio-visual preprocessing
+
+This step normalizes videos, extracts frames, cuts 30-frame clips, extracts
+synchronized mono WAV audio at 48 kHz, and writes a global manifest.
+
+```bash
+python3 main.py preprocess \
+  --real-dir data/prepared/dfdc/real \
+  --fake-dir data/prepared/dfdc/fake \
+  --output-dir data/processed \
+  --fps 30 \
+  --clip-size 30 \
+  --sample-rate 48000
+```
+
+The output manifest is written to:
+
+```text
+data/processed/manifest.csv
+```
+
+### 4. Create train/validation/test manifests
+
+Split the global manifest into stable train, validation, and test files. The
+split is based on `video_id`, so clips from the same source video stay in the
+same split.
+
+```bash
+python3 -m src.data.split_manifest \
+  --manifest-path data/processed/manifest.csv \
+  --output-dir data/manifests
+```
+
+This creates:
+
+```text
+data/manifests/train_manifest.csv
+data/manifests/val_manifest.csv
+data/manifests/test_manifest.csv
+```
+
+After this step, the baseline training commands can read the dataset manifests.
+For FGI-inspired training, first run the additional face-crop preprocessing
+described in the FGI sections below.
+
 ## Usage
 
 Train an audio or video baseline:
